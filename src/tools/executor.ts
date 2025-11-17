@@ -211,45 +211,73 @@ export class ToolExecutor {
       await this.showDiffPreview(toolCall.params.path as string, toolCall.params.content as string);
     }
 
-    // 創建一個臨時的 readline，但在創建前確保 stdin 處於正常狀態
+    // 使用同步方式讀取一行輸入，避免與主 readline 衝突
     return new Promise((resolve) => {
-      // 確保 stdin 不在 raw mode
-      if (process.stdin.isTTY && process.stdin.isRaw) {
+      process.stdout.write(chalk.yellow("是否執行此操作? [y/n/d(顯示詳細diff)/q(退出)]: "));
+      
+      // 保存當前所有 stdin 監聽器並移除（避免重複處理）
+      const allListeners: Map<string, Function[]> = new Map();
+      ['data', 'readable', 'end', 'close', 'error'].forEach(event => {
+        const listeners = process.stdin.listeners(event);
+        if (listeners.length > 0) {
+          allListeners.set(event, listeners as Function[]);
+          process.stdin.removeAllListeners(event);
+        }
+      });
+      
+      // 設置 stdin 為正常模式（非 raw）
+      const wasRaw = process.stdin.isRaw;
+      if (process.stdin.isTTY) {
         process.stdin.setRawMode(false);
       }
       
-      // 確保 stdin 已恢復（resume）
-      if (process.stdin.isPaused()) {
-        process.stdin.resume();
-      }
+      // 確保 stdin 可讀
+      process.stdin.resume();
+      
+      let buffer = '';
+      
+      const onData = (chunk: Buffer) => {
+        buffer += chunk.toString();
+        
+        // 遇到換行符表示輸入完成
+        if (buffer.includes('\n')) {
+          // 移除我們的監聽器
+          process.stdin.removeListener('data', onData);
+          
+          // 恢復所有原始監聽器
+          allListeners.forEach((listeners, event) => {
+            listeners.forEach(listener => {
+              process.stdin.on(event as any, listener as any);
+            });
+          });
+          
+          // 恢復 raw mode（如果之前是 raw）
+          if (process.stdin.isTTY && wasRaw) {
+            process.stdin.setRawMode(true);
+          }
+          
+          const answer = buffer.trim().toLowerCase();
+          
+          if (answer === "q" || answer === "quit") {
+            console.log(chalk.red("用戶中止操作"));
+            process.exit(0);
+          }
 
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        terminal: false, // 關鍵：設置為 false，避免干擾主 readline
-      });
+          if (answer === "d" || answer === "diff") {
+            // 顯示完整 diff 後重新詢問
+            this.showDiffPreview(toolCall.params.path as string, toolCall.params.content as string, true).then(
+              () => {
+                this.requestApproval(toolCall).then(resolve);
+              }
+            );
+            return;
+          }
 
-      rl.question(chalk.yellow("是否執行此操作? [y/n/d(顯示詳細diff)/q(退出)]: "), (answer) => {
-        rl.close();
-
-        const normalized = answer.trim().toLowerCase();
-        if (normalized === "q" || normalized === "quit") {
-          console.log(chalk.red("用戶中止操作"));
-          process.exit(0);
+          resolve(answer === "y" || answer === "yes");
         }
-
-        if (normalized === "d" || normalized === "diff") {
-          // 顯示完整 diff 後重新詢問
-          this.showDiffPreview(toolCall.params.path as string, toolCall.params.content as string, true).then(
-            () => {
-              this.requestApproval(toolCall).then(resolve);
-            }
-          );
-          return;
-        }
-
-        resolve(normalized === "y" || normalized === "yes");
-      });
+      };
+      
+      process.stdin.on('data', onData);
     });
   }
 
