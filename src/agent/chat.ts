@@ -216,13 +216,28 @@ export class ChatSession {
 1. 當用戶要求「繼續寫/編輯/修改」某個文件時：
    - 先用 read_file 讀取當前內容
    - 然後用 write_file 寫入更新後的完整內容
-   - 不要只讀取不寫入
+   - content 參數必須包含完整的檔案內容（不能省略）
    
-2. 當用戶要求「添加功能」時：
-   - 直接使用 write_file 工具添加內容
-   - 確保提供完整的更新後的檔案內容
+2. write_file 工具使用範例：
+   <action>
+   <invoke tool="write_file">
+     <param name="path">index.html</param>
+     <param name="content"><!DOCTYPE html>
+<html>
+<head>...</head>
+<body>
+  完整的 HTML 內容
+</body>
+</html></param>
+   </invoke>
+   </action>
    
-3. 主動執行而非被動詢問：
+3. 重要：content 參數必須是完整的檔案內容
+   - 不能只寫部分內容
+   - 不能省略 content 參數
+   - 如果內容很長，也必須完整提供
+   
+4. 主動執行而非被動詢問：
    - 用戶說「繼續寫」= 直接寫入更新
    - 用戶說「幫我添加」= 直接添加並寫入
    - 只在真正需要澄清時才詢問

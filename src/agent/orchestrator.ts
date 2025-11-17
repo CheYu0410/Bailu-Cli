@@ -155,16 +155,10 @@ export class AgentOrchestrator {
             console.log(chalk.red(`✗ 執行失敗: ${result.error}`));
           }
 
-          // 如果工具失敗且不是 dry-run，可能需要停止
-          if (!result.success && this.toolExecutor["context"].safetyMode !== "dry-run") {
-            console.log(chalk.red(`\n✗ 工具執行失敗，停止任務`));
-            return {
-              success: false,
-              finalResponse: textContent,
-              iterations,
-              toolCallsExecuted,
-              error: result.error,
-            };
+          // 如果工具失敗，記錄錯誤但繼續（給 AI 機會修復）
+          if (!result.success) {
+            console.log(chalk.yellow(`\n⚠️  工具執行失敗，錯誤已反饋給 AI 嘗試修復...`));
+            // 不立即停止，讓 AI 在下一輪中看到錯誤並修復
           }
         }
 
