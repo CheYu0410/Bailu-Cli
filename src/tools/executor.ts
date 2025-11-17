@@ -44,6 +44,8 @@ export class ToolExecutor {
           error: "用戶取消了操作",
         };
       }
+      // 確認後添加換行，避免輸出混亂
+      console.log();
     }
 
     // dry-run 模式：只顯示計畫，不執行

@@ -145,6 +145,16 @@ export class AgentOrchestrator {
 
           toolResults.push(`[工具: ${toolCall.tool}]\n${resultText}`);
 
+          // 顯示工具執行結果給用戶
+          if (result.success) {
+            console.log(chalk.green(`✓ 工具執行成功`));
+            if (result.output && result.output.trim()) {
+              console.log(chalk.gray("\n" + result.output.trim() + "\n"));
+            }
+          } else {
+            console.log(chalk.red(`✗ 執行失敗: ${result.error}`));
+          }
+
           // 如果工具失敗且不是 dry-run，可能需要停止
           if (!result.success && this.toolExecutor["context"].safetyMode !== "dry-run") {
             console.log(chalk.red(`\n✗ 工具執行失敗，停止任務`));
