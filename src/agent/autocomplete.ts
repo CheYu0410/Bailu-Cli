@@ -4,6 +4,7 @@
 
 import readline from "readline";
 import chalk from "chalk";
+import { ensureKeypressEvents, enterRawMode, exitRawMode } from "../utils/stdin-manager";
 
 export interface SlashCommandDef {
   command: string;
@@ -55,25 +56,9 @@ export async function showSlashCommandPicker(): Promise<string | null> {
   }
 
   return new Promise((resolve) => {
-    let wasRawMode = false;
-    let hadKeypressListener = false;
-
-    // 檢查是否已經在監聽 keypress
-    const existingListeners = process.stdin.listenerCount("keypress");
-    if (existingListeners === 0) {
-      readline.emitKeypressEvents(process.stdin);
-      hadKeypressListener = false;
-    } else {
-      hadKeypressListener = true;
-    }
-
-    // 設置 raw mode
-    if (process.stdin.isTTY && !process.stdin.isRaw) {
-      process.stdin.setRawMode(true);
-      wasRawMode = false;
-    } else {
-      wasRawMode = true;
-    }
+    // 使用統一的 stdin 管理
+    ensureKeypressEvents();
+    enterRawMode();
 
     const onKeypress = (str: string, key: any) => {
       if (!key) return;
@@ -109,10 +94,8 @@ export async function showSlashCommandPicker(): Promise<string | null> {
       // 移除事件監聽器
       process.stdin.off("keypress", onKeypress);
       
-      // 恢復 raw mode 狀態
-      if (process.stdin.isTTY && !wasRawMode) {
-        process.stdin.setRawMode(false);
-      }
+      // 使用統一的 stdin 管理退出 raw mode
+      exitRawMode();
     };
 
     process.stdin.on("keypress", onKeypress);

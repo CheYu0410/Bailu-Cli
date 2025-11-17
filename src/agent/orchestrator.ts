@@ -127,10 +127,11 @@ export class AgentOrchestrator {
           }
         }
 
-        // 將工具結果作為 tool role 消息回饋給 LLM
+        // 將工具結果作為 user role 消息回饋給 LLM
+        // 注意：白鹿 API 可能不支持標準的 tool role，改用 user role
         messages.push({
-          role: "tool",
-          content: toolResults.join("\n\n"),
+          role: "user",
+          content: `[工具執行結果]\n${toolResults.join("\n\n")}`,
         });
 
         // 如果是 dry-run，在第一輪後停止
