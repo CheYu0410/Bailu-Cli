@@ -2,7 +2,7 @@
  * 斜線命令自動補全
  */
 
-import inquirer from "inquirer";
+import readline from "readline";
 import chalk from "chalk";
 
 export interface SlashCommandDef {
@@ -27,46 +27,92 @@ export const slashCommands: SlashCommandDef[] = [
 ];
 
 /**
- * 顯示斜線命令選擇器
+ * 顯示斜線命令選擇器（使用自定義 readline UI）
  */
 export async function showSlashCommandPicker(): Promise<string | null> {
-  const choices = slashCommands.map((cmd) => {
-    const name = cmd.alias
-      ? `${chalk.green(cmd.command)} ${chalk.gray(`(${cmd.alias})`)}`
-      : chalk.green(cmd.command);
-    const desc = chalk.gray(` - ${cmd.description}`);
-    const usage = cmd.usage ? chalk.yellow(`  ${cmd.usage}`) : "";
-    
-    return {
-      name: `${name}${desc}${usage ? "\n    " + usage : ""}`,
-      value: cmd.command,
-      short: cmd.command,
-    };
-  });
+  console.log(chalk.cyan("\n📋 可用的斜線命令（用上下鍵選擇，Enter 確認，Esc 取消）：\n"));
+
+  const commands: Array<{ display: string; value: string | null }> = slashCommands.map((cmd) => ({
+    display: formatCommandDisplay(cmd),
+    value: cmd.command,
+  }));
 
   // 添加取消選項
-  choices.push({
-    name: chalk.gray("(取消，返回輸入)"),
-    value: "__cancel__",
-    short: "取消",
+  commands.push({
+    display: chalk.gray("  (取消)"),
+    value: null,
   });
 
-  try {
-    const answer = await inquirer.prompt([
-      {
-        type: "list",
-        name: "command",
-        message: "選擇一個命令：",
-        choices,
-        pageSize: 15,
-      },
-    ]);
+  let selectedIndex = 0;
 
-    return answer.command === "__cancel__" ? null : answer.command;
-  } catch {
-    // 用戶取消（Ctrl+C）
-    return null;
+  // 初始顯示
+  renderCommands(commands, selectedIndex);
+
+  return new Promise((resolve) => {
+    // 監聽鍵盤事件
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    }
+
+    const onKeypress = (str: string, key: any) => {
+      if (key.name === "up") {
+        selectedIndex = Math.max(0, selectedIndex - 1);
+        renderCommands(commands, selectedIndex);
+      } else if (key.name === "down") {
+        selectedIndex = Math.min(commands.length - 1, selectedIndex + 1);
+        renderCommands(commands, selectedIndex);
+      } else if (key.name === "return" || key.name === "enter") {
+        cleanup();
+        console.log(); // 換行
+        resolve(commands[selectedIndex].value);
+      } else if (key.name === "escape" || (key.ctrl && key.name === "c")) {
+        cleanup();
+        console.log(chalk.gray("\n(已取消)"));
+        resolve(null);
+      }
+    };
+
+    const cleanup = () => {
+      process.stdin.off("keypress", onKeypress);
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(false);
+      }
+    };
+
+    process.stdin.on("keypress", onKeypress);
+  });
+}
+
+/**
+ * 渲染命令列表
+ */
+function renderCommands(
+  commands: Array<{ display: string; value: string | null }>,
+  selectedIndex: number
+): void {
+  // 清除之前的輸出
+  readline.cursorTo(process.stdout, 0);
+  readline.moveCursor(process.stdout, 0, -commands.length);
+  readline.clearScreenDown(process.stdout);
+
+  // 重新渲染
+  for (let i = 0; i < commands.length; i++) {
+    const isSelected = i === selectedIndex;
+    const prefix = isSelected ? chalk.cyan("❯ ") : "  ";
+    const display = isSelected ? chalk.bold(commands[i].display) : commands[i].display;
+    console.log(prefix + display);
   }
+}
+
+/**
+ * 格式化命令顯示
+ */
+function formatCommandDisplay(cmd: SlashCommandDef): string {
+  const main = chalk.green(cmd.command);
+  const alias = cmd.alias ? chalk.gray(` (${cmd.alias})`) : "";
+  const desc = chalk.gray(` - ${cmd.description}`);
+  return `${main}${alias}${desc}`;
 }
 
 /**
