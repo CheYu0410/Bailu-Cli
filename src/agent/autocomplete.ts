@@ -44,9 +44,15 @@ export async function showSlashCommandPicker(): Promise<string | null> {
   });
 
   let selectedIndex = 0;
+  let isFirstRender = true;
 
   // 初始顯示
-  renderCommands(commands, selectedIndex);
+  for (let i = 0; i < commands.length; i++) {
+    const isSelected = i === selectedIndex;
+    const prefix = isSelected ? chalk.cyan("❯ ") : "  ";
+    const display = isSelected ? chalk.bold(commands[i].display) : commands[i].display;
+    console.log(prefix + display);
+  }
 
   return new Promise((resolve) => {
     // 監聽鍵盤事件
@@ -56,12 +62,24 @@ export async function showSlashCommandPicker(): Promise<string | null> {
     }
 
     const onKeypress = (str: string, key: any) => {
+      if (!key) return;
+
       if (key.name === "up") {
         selectedIndex = Math.max(0, selectedIndex - 1);
-        renderCommands(commands, selectedIndex);
+        if (!isFirstRender) {
+          renderCommands(commands, selectedIndex);
+        } else {
+          isFirstRender = false;
+          renderCommands(commands, selectedIndex);
+        }
       } else if (key.name === "down") {
         selectedIndex = Math.min(commands.length - 1, selectedIndex + 1);
-        renderCommands(commands, selectedIndex);
+        if (!isFirstRender) {
+          renderCommands(commands, selectedIndex);
+        } else {
+          isFirstRender = false;
+          renderCommands(commands, selectedIndex);
+        }
       } else if (key.name === "return" || key.name === "enter") {
         cleanup();
         console.log(); // 換行
@@ -89,12 +107,14 @@ export async function showSlashCommandPicker(): Promise<string | null> {
  */
 function renderCommands(
   commands: Array<{ display: string; value: string | null }>,
-  selectedIndex: number
+  selectedIndex: number,
+  isFirstRender = false
 ): void {
-  // 清除之前的輸出
-  readline.cursorTo(process.stdout, 0);
-  readline.moveCursor(process.stdout, 0, -commands.length);
-  readline.clearScreenDown(process.stdout);
+  if (!isFirstRender) {
+    // 清除之前的輸出（只在非首次渲染時）
+    readline.moveCursor(process.stdout, 0, -(commands.length + 1));
+    readline.clearScreenDown(process.stdout);
+  }
 
   // 重新渲染
   for (let i = 0; i < commands.length; i++) {

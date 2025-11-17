@@ -92,19 +92,43 @@ export class ChatSession {
       if (trimmed.startsWith("/")) {
         // 如果只輸入了 "/"，顯示命令選擇器
         if (trimmed === "/") {
+          // 完全關閉當前 readline，避免衝突
           this.rl.pause();
-          const selectedCommand = await showSlashCommandPicker();
-          this.rl.resume();
+          
+          try {
+            const selectedCommand = await showSlashCommandPicker();
+            
+            if (selectedCommand) {
+              // 手動處理選中的命令
+              const slashResult = await handleSlashCommand(selectedCommand, {
+                llmClient: this.llmClient,
+                workspaceContext: this.workspaceContext,
+                messages: this.messages,
+                sessionStats: this.sessionStats,
+              });
 
-          if (selectedCommand) {
-            // 遞迴處理選中的命令
-            this.rl.emit("line", selectedCommand);
-            return;
-          } else {
-            // 用戶取消
+              if (slashResult.handled) {
+                if (slashResult.response) {
+                  console.log(slashResult.response);
+                }
+
+                if (slashResult.shouldExit) {
+                  console.log(chalk.gray("再見！"));
+                  this.rl.close();
+                  process.exit(0);
+                }
+
+                if (slashResult.shouldClearHistory) {
+                  this.messages = [this.messages[0]];
+                  this.sessionStats.messagesCount = 0;
+                }
+              }
+            }
+          } finally {
+            this.rl.resume();
             this.rl.prompt();
-            return;
           }
+          return;
         }
 
         const slashResult = await handleSlashCommand(trimmed, {
