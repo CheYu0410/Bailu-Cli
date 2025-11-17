@@ -195,7 +195,7 @@ async function handleListSessions(sessionManager: SessionManager) {
   for (const session of sessions) {
     const lastRun = session.runs[session.runs.length - 1];
     const status = lastRun?.status || session.task.status;
-    const statusColor = status === "completed" ? chalk.green : status === "failed" ? chalk.red : chalk.yellow;
+    const statusColor = status === "succeeded" ? chalk.green : status === "failed" ? chalk.red : chalk.yellow;
 
     console.log(chalk.bold(session.sessionId));
     console.log(chalk.gray(`  任務: ${session.task.description}`));
@@ -241,7 +241,7 @@ async function executeTask(
   if (session) {
     const run = agent.getRun(session.currentRunId || "");
     if (run) {
-      run.status = result.success ? "completed" : "failed";
+      run.status = result.success ? "succeeded" : "failed";
       run.finishedAt = new Date().toISOString();
       await sessionManager.updateSessionRun(sessionId, run);
     }

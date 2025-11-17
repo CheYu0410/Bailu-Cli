@@ -40,6 +40,7 @@ export interface Run {
   updatedAt: string;
   status: TaskStatus;
   steps: Step[];
+  finishedAt?: string;
 }
 
 export interface BailuConfig {
