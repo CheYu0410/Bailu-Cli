@@ -135,6 +135,8 @@ export class AgentOrchestrator {
 
         // 執行所有工具調用
         const toolResults: string[] = [];
+        let hasFailure = false;
+        
         for (const toolCall of toolCalls) {
           const result = await this.toolExecutor.execute(toolCall);
           toolCallsExecuted++;
@@ -153,13 +155,22 @@ export class AgentOrchestrator {
             }
           } else {
             console.log(chalk.red(`✗ 執行失敗: ${result.error}`));
+            hasFailure = true;
           }
 
-          // 如果工具失敗，記錄錯誤但繼續（給 AI 機會修復）
+          // 如果工具失敗，記錄但繼續（給 AI 機會修復）
           if (!result.success) {
             console.log(chalk.yellow(`\n⚠️  工具執行失敗，錯誤已反饋給 AI 嘗試修復...`));
-            // 不立即停止，讓 AI 在下一輪中看到錯誤並修復
           }
+        }
+        
+        // 如果有失敗且已經重試多次，停止循環
+        if (hasFailure && iterations >= 3) {
+          console.log(chalk.yellow(`\n⚠️  已嘗試 ${iterations} 次，建議：`));
+          console.log(chalk.cyan(`   1. 使用更明確的指令（例如："寫入 index.html，添加聯絡表單"）`));
+          console.log(chalk.cyan(`   2. 或者讓 AI 只顯示內容，然後手動保存`));
+          console.log(chalk.cyan(`   3. 嘗試切換到其他支援工具調用的模型\n`));
+          break;
         }
 
         // 將工具結果作為 user role 消息回饋給 LLM

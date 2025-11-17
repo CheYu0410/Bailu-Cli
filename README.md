@@ -373,6 +373,39 @@ A:
 2. 使用 Git：`git diff` 查看改動，`git restore` 回滾
 3. 在 review 模式下，每次改動前都會展示 diff
 
+### Q: AI 重複報錯「缺少必需參數: content」怎麼辦？
+A: **這是 Test-Hide 模型的已知限制**，它可能無法正確生成包含完整文件內容的 `write_file` 調用。
+
+**解決方案：**
+1. **使用更明確的指令**：
+   ```
+   你: 請在 index.html 中的 <footer> 前添加 <section class="contact">聯絡我們</section>，
+       然後使用 write_file 寫入完整更新後的內容
+   ```
+
+2. **讓 AI 只顯示內容**：
+   ```
+   你: 請生成更新後的 index.html 完整內容，
+       用代碼塊顯示即可，不要調用工具
+   ```
+   然後手動複製保存
+
+3. **切換模型**（如果可用）：
+   ```bash
+   # 在聊天模式中使用 /model 命令
+   你: /model
+   (選擇其他模型)
+   
+   # 或設置環境變量
+   $env:BAILU_MODEL="bailu-2.5-pro"
+   bailu-cli
+   ```
+
+4. **使用 `bailu fix` 命令**（更適合文件編輯）：
+   ```bash
+   bailu fix "在 index.html 添加聯絡表單"
+   ```
+
 ### Q: 模型返回 "Model xxx does not exist"？
 A: **不用擔心！** Bailu CLI 現在會自動處理這個問題：
 
