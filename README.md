@@ -205,14 +205,13 @@ BAILU_MODE=review bailu fix "重構代碼"
 BAILU_MODE=auto-apply bailu fix "格式化代碼"
 ```
 
-### `bailu chat`
+### `bailu chat` 或 `bailu`（無參數）
 進入交互式對話，可以：
-- 多輪對話記憶上下文
-- 隨時調用工具
-- 輸入 `clear` 清空歷史
-- 輸入 `exit` 退出
+- 💬 多輪對話記憶上下文
+- 🔧 隨時調用工具
+- 📊 使用斜線命令管理會話
 
-**示例：**
+**基本對話：**
 ```
 你: 列出 src 目錄下的所有文件
 Bailu: (調用 list_directory 工具)
@@ -222,6 +221,40 @@ Bailu: (調用 read_file 工具)
 
 你: 幫我加個日誌輸出
 Bailu: (調用 write_file 工具，展示 diff，請求確認)
+```
+
+**斜線命令（Slash Commands）：**
+
+| 命令 | 說明 |
+|------|------|
+| `/help` 或 `/h` | 顯示所有可用命令 |
+| `/status` 或 `/s` | 查看 CLI 狀態、模型、token 使用、運行時間 |
+| `/model [ID]` 或 `/m` | 切換或查看當前模型 |
+| `/models` | 列出所有可用模型 |
+| `/tokens` 或 `/t` | 查看 token 使用情況 |
+| `/history` | 顯示對話歷史摘要 |
+| `/compress` | 壓縮對話上下文（保留最近 3 輪） |
+| `/settings` | 查看或修改配置 |
+| `/mode [模式]` | 切換安全模式（dry-run/review/auto-apply） |
+| `/clear` 或 `/c` | 清空對話歷史 |
+| `/exit` 或 `/q` | 退出 CLI |
+
+**示例：**
+```
+你: /help
+(顯示所有命令)
+
+你: /status
+(顯示當前模型、token 使用、會話統計)
+
+你: /model bailu-2.5-pro
+(切換模型)
+
+你: /compress
+(壓縮對話，節省 token)
+
+你: /mode auto-apply
+(切換到自動執行模式)
 ```
 
 ### `bailu run [任務描述]`
@@ -259,10 +292,12 @@ bailu models
 | 變量 | 說明 | 默認值 |
 |------|------|--------|
 | `BAILU_API_KEY` | 白鹿 API Key | 無（首次會提示輸入） |
-| `BAILU_MODEL` | 模型 ID | `bailu-2.6-preview` |
+| `BAILU_MODEL` | 模型 ID | `bailu-2.5-pro` ⭐ |
 | `BAILU_BASE_URL` | API 端點 | `https://bailucode.com/openapi/v1` |
 | `BAILU_MODE` | 安全模式 | `review` |
 | `BAILU_CONFIG_DIR` | 配置目錄 | `~/.config/bailu-cli` (Unix) / `%APPDATA%\bailu-cli` (Windows) |
+
+**模型會自動檢測**：如果默認模型不可用，CLI 會自動切換到你賬號可用的模型。
 
 ---
 

@@ -59,7 +59,7 @@ export class LLMClient {
     }
 
     this.apiKey = apiKey;
-    this.model = options.model ?? modelEnv ?? "bailu-2.6-preview";
+    this.model = options.model ?? modelEnv ?? "bailu-2.5-pro";
     this.baseUrl = options.baseUrl ?? baseEnv ?? "https://bailucode.com/openapi/v1";
   }
 

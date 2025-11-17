@@ -9,6 +9,7 @@ import { WorkspaceContext } from "./types";
 import { ToolRegistry } from "../tools/registry";
 import { AgentOrchestrator } from "./orchestrator";
 import { ToolExecutionContext } from "../tools/types";
+import { handleSlashCommand } from "./slash-commands";
 
 export interface ChatSessionOptions {
   llmClient: LLMClient;
@@ -22,9 +23,16 @@ export class ChatSession {
   private orchestrator: AgentOrchestrator;
   private messages: ChatMessage[];
   private rl: readline.Interface;
+  private workspaceContext: WorkspaceContext;
+  private sessionStats = {
+    messagesCount: 0,
+    toolCallsCount: 0,
+    startTime: new Date(),
+  };
 
   constructor(options: ChatSessionOptions) {
     this.llmClient = options.llmClient;
+    this.workspaceContext = options.workspaceContext;
     this.orchestrator = new AgentOrchestrator({
       llmClient: options.llmClient,
       toolRegistry: options.toolRegistry,
@@ -52,8 +60,7 @@ export class ChatSession {
    * 開始交互式對話
    */
   async start(): Promise<void> {
-    console.log(chalk.green("\n[Bailu Chat 模式]"));
-    console.log(chalk.gray("進入交互模式。輸入 'exit' 或 'quit' 退出，輸入 'clear' 清空對話歷史。\n"));
+    this.printWelcome();
 
     this.rl.prompt();
 
@@ -65,7 +72,7 @@ export class ChatSession {
         return;
       }
 
-      // 特殊命令
+      // 舊的特殊命令（保持向後兼容）
       if (trimmed === "exit" || trimmed === "quit") {
         console.log(chalk.gray("再見！"));
         this.rl.close();
@@ -74,9 +81,40 @@ export class ChatSession {
 
       if (trimmed === "clear") {
         this.messages = [this.messages[0]]; // 保留 system message
-        console.log(chalk.gray("對話歷史已清空"));
+        this.sessionStats.messagesCount = 0;
+        console.log(chalk.green("✓ 對話歷史已清空"));
         this.rl.prompt();
         return;
+      }
+
+      // 處理斜線命令
+      if (trimmed.startsWith("/")) {
+        const slashResult = await handleSlashCommand(trimmed, {
+          llmClient: this.llmClient,
+          workspaceContext: this.workspaceContext,
+          messages: this.messages,
+          sessionStats: this.sessionStats,
+        });
+
+        if (slashResult.handled) {
+          if (slashResult.response) {
+            console.log(slashResult.response);
+          }
+
+          if (slashResult.shouldExit) {
+            console.log(chalk.gray("再見！"));
+            this.rl.close();
+            process.exit(0);
+          }
+
+          if (slashResult.shouldClearHistory) {
+            this.messages = [this.messages[0]]; // 保留 system message
+            this.sessionStats.messagesCount = 0;
+          }
+
+          this.rl.prompt();
+          return;
+        }
       }
 
       // 將用戶消息加入歷史
@@ -84,6 +122,7 @@ export class ChatSession {
         role: "user",
         content: trimmed,
       });
+      this.sessionStats.messagesCount++;
 
       // 使用 orchestrator 處理（支持工具調用）
       console.log(chalk.cyan("\nBailu: "));
@@ -95,6 +134,8 @@ export class ChatSession {
           role: "assistant",
           content: result.finalResponse,
         });
+        this.sessionStats.messagesCount++;
+        this.sessionStats.toolCallsCount += result.toolCallsExecuted;
       } else {
         console.log(chalk.red(`\n錯誤: ${result.error}`));
       }
@@ -125,5 +166,30 @@ export class ChatSession {
 
 請用中文回應，並保持簡潔、準確。當需要執行操作時，使用提供的工具。`;
   }
+
+  /**
+   * 顯示歡迎信息
+   */
+  private printWelcome(): void {
+    console.log(chalk.green("\n╔══════════════════════════════════════════════════════════╗"));
+    console.log(chalk.green("║") + chalk.bold.cyan("           Bailu Chat - AI 交互模式                ") + chalk.green("║"));
+    console.log(chalk.green("╚══════════════════════════════════════════════════════════╝"));
+
+    console.log(chalk.gray("\n💡 快速開始："));
+    console.log(chalk.cyan("  • 直接輸入問題或需求，AI 會自動處理"));
+    console.log(chalk.cyan("  • 輸入 ") + chalk.green("/help") + chalk.cyan(" 查看所有斜線命令"));
+    console.log(chalk.cyan("  • 輸入 ") + chalk.green("/status") + chalk.cyan(" 查看當前狀態"));
+    console.log(chalk.cyan("  • 輸入 ") + chalk.green("/exit") + chalk.cyan(" 或 ") + chalk.green("exit") + chalk.cyan(" 退出"));
+
+    const currentModel = this.llmClient["model"];
+    const safetyMode = process.env.BAILU_MODE || "review";
+
+    console.log(chalk.gray("\n⚙️  當前配置："));
+    console.log(chalk.gray(`  模型: ${chalk.yellow(currentModel)}`));
+    console.log(chalk.gray(`  模式: ${chalk.yellow(safetyMode)}`));
+    console.log(chalk.gray(`  工作區: ${chalk.yellow(this.workspaceContext.rootPath)}`));
+    console.log();
+  }
 }
+
 

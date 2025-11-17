@@ -49,6 +49,20 @@ export function saveCliConfig(config: BailuCliConfig) {
   fs.writeFileSync(getConfigPath(), JSON.stringify(merged, null, 2), "utf8");
 }
 
+/**
+ * 獲取當前配置（供斜線命令使用）
+ */
+export async function getConfig(): Promise<BailuCliConfig> {
+  return loadCliConfig();
+}
+
+/**
+ * 保存配置（供斜線命令使用）
+ */
+export async function saveConfig(config: BailuCliConfig): Promise<void> {
+  saveCliConfig(config);
+}
+
 export async function ensureApiKeyInteractive(): Promise<string> {
   const fromEnv = process.env.BAILU_API_KEY;
   if (fromEnv && fromEnv.trim()) {
