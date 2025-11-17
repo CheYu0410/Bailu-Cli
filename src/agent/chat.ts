@@ -10,6 +10,7 @@ import { ToolRegistry } from "../tools/registry";
 import { AgentOrchestrator } from "./orchestrator";
 import { ToolExecutionContext } from "../tools/types";
 import { handleSlashCommand } from "./slash-commands";
+import { showSlashCommandPicker } from "./autocomplete";
 
 export interface ChatSessionOptions {
   llmClient: LLMClient;
@@ -89,6 +90,23 @@ export class ChatSession {
 
       // 處理斜線命令
       if (trimmed.startsWith("/")) {
+        // 如果只輸入了 "/"，顯示命令選擇器
+        if (trimmed === "/") {
+          this.rl.pause();
+          const selectedCommand = await showSlashCommandPicker();
+          this.rl.resume();
+
+          if (selectedCommand) {
+            // 遞迴處理選中的命令
+            this.rl.emit("line", selectedCommand);
+            return;
+          } else {
+            // 用戶取消
+            this.rl.prompt();
+            return;
+          }
+        }
+
         const slashResult = await handleSlashCommand(trimmed, {
           llmClient: this.llmClient,
           workspaceContext: this.workspaceContext,
@@ -177,9 +195,10 @@ export class ChatSession {
 
     console.log(chalk.gray("\n💡 快速開始："));
     console.log(chalk.cyan("  • 直接輸入問題或需求，AI 會自動處理"));
-    console.log(chalk.cyan("  • 輸入 ") + chalk.green("/help") + chalk.cyan(" 查看所有斜線命令"));
+    console.log(chalk.cyan("  • 輸入 ") + chalk.green("/") + chalk.cyan(" 顯示所有斜線命令（可用上下鍵選擇）"));
+    console.log(chalk.cyan("  • 輸入 ") + chalk.green("/help") + chalk.cyan(" 查看命令說明"));
     console.log(chalk.cyan("  • 輸入 ") + chalk.green("/status") + chalk.cyan(" 查看當前狀態"));
-    console.log(chalk.cyan("  • 輸入 ") + chalk.green("/exit") + chalk.cyan(" 或 ") + chalk.green("exit") + chalk.cyan(" 退出"));
+    console.log(chalk.cyan("  • 輸入 ") + chalk.green("exit") + chalk.cyan(" 退出"));
 
     const currentModel = this.llmClient["model"];
     const safetyMode = process.env.BAILU_MODE || "review";
