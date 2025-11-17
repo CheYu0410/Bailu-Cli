@@ -360,6 +360,13 @@ async function main() {
       }
     });
 
+  // 如果沒有提供任何命令，直接進入交互模式
+  if (process.argv.length === 2) {
+    printBanner();
+    await handleChat();
+    return;
+  }
+
   await program.parseAsync(process.argv);
 }
 

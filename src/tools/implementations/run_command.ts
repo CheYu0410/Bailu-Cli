@@ -48,7 +48,7 @@ export const runCommandTool: Tool = {
       const timeout = ((params.timeout as number) || 300) * 1000; // 轉換為毫秒
 
       const policy = getDefaultPolicy();
-      policy.maxDuration = timeout;
+      policy.maxCommandDurationMs = timeout;
 
       const result = await runCommandSafe(cwd, command, args, policy);
 

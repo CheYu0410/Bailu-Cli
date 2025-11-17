@@ -89,14 +89,19 @@ export BAILU_API_KEY="sk-你的白鹿Key"
 ### 4. 基本使用
 
 ```bash
-# 問答模式（只讀）
+# 🔥 最簡單：直接進入交互模式（推薦）
+node dist/cli.js
+# 或簡寫：bailu
+
+# 進入後可以直接對話：
+> 這個專案的主要入口文件是什麼？
+> 把 README 的安裝步驟改成 pnpm
+> 列出 src 目錄的文件
+> exit
+
+# 也可以快速執行單次命令（不進入交互）
 node dist/cli.js ask "這個專案的主要入口文件是什麼？"
-
-# 自動修改代碼（會調用工具）
 node dist/cli.js fix "把 README 的安裝步驟改成 pnpm"
-
-# 進入交互對話
-node dist/cli.js chat
 
 # 執行複雜任務
 node dist/cli.js run "重構 auth 模組，分離驗證邏輯"
@@ -111,6 +116,25 @@ node dist/cli.js run --resume session_xxx
 ---
 
 ## 📚 命令詳解
+
+### `bailu`（無參數）
+**直接進入交互模式**，這是最推薦的使用方式！
+
+```bash
+bailu
+```
+
+進入後你可以：
+- 💬 多輪對話，AI 會記住上下文
+- 🔧 讓 AI 讀取、修改文件
+- 🚀 執行命令
+- 📊 查看實時執行過程
+
+**特殊命令：**
+- `clear` - 清空對話歷史
+- `exit` 或 `quit` - 退出
+
+---
 
 ### `bailu ask [問題]`
 純問答模式，不會修改任何文件。適合：

@@ -51,7 +51,7 @@ export class ChatSession {
   /**
    * 開始交互式對話
    */
-  async start(): void {
+  async start(): Promise<void> {
     console.log(chalk.green("\n[Bailu Chat 模式]"));
     console.log(chalk.gray("進入交互模式。輸入 'exit' 或 'quit' 退出，輸入 'clear' 清空對話歷史。\n"));
 
