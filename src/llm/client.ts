@@ -190,8 +190,10 @@ export class LLMClient {
       body.tool_choice = "auto";
       
       // 調試：記錄工具數量
-      if (process.env.DEBUG_TOOLS) {
-        console.log(`[DEBUG] Sending ${tools.length} tools to API with tool_choice=auto`);
+      if (process.env.DEBUG_TOOLS || process.env.BAILU_DEBUG) {
+        console.log(`[DEBUG] 發送 ${tools.length} 個工具到 API`);
+        console.log(`[DEBUG] 工具名稱: ${tools.map((t: any) => t.function?.name).join(', ')}`);
+        console.log(`[DEBUG] tool_choice: auto`);
       }
     }
 
@@ -272,6 +274,11 @@ export class LLMClient {
       body.tools = tools;
       // 讓模型自動決定是否調用工具（OpenAI 標準）
       body.tool_choice = "auto";
+      
+      // 調試：記錄工具數量（流式模式）
+      if (process.env.DEBUG_TOOLS || process.env.BAILU_DEBUG) {
+        console.log(`[DEBUG STREAM] 發送 ${tools.length} 個工具到 API`);
+      }
     }
 
     const response = await fetch(url, {
