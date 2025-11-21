@@ -69,7 +69,7 @@ export class LLMClient {
     }
 
     this.apiKey = apiKey;
-    this.model = options.model ?? modelEnv ?? "Test-Hide";
+    this.model = options.model ?? modelEnv ?? "bailu-2.6-preview";
     this.baseUrl = options.baseUrl ?? baseEnv ?? "https://bailucode.com/openapi/v1";
   }
 
@@ -228,7 +228,14 @@ export class LLMClient {
       throw new Error(detail ? `${baseMsg}\n${detail}` : baseMsg);
     }
 
-    const data = (await response.json()) as ChatCompletionResponse;
+    let data: ChatCompletionResponse;
+    try {
+      data = (await response.json()) as ChatCompletionResponse;
+    } catch (error) {
+      // JSON 解析失敗，可能是 API 返回了錯誤格式
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`白鹿 API 返回了無效的 JSON 響應。\n可能原因：\n1. API 在非流式模式下意外返回了流式數據格式\n2. 網絡傳輸中斷或損壞\n3. API 服務異常\n\n建議：使用流式模式 (stream=true) 或檢查網絡連接\n\n原始錯誤: ${errorMsg}`);
+    }
     const choice = data.choices?.[0];
     
     // 如果模型返回了結構化的 tool_calls，將其轉換為 XML 格式
@@ -278,6 +285,19 @@ export class LLMClient {
       // 調試：記錄工具數量（流式模式）
       if (process.env.DEBUG_TOOLS || process.env.BAILU_DEBUG) {
         console.log(`[DEBUG STREAM] 發送 ${tools.length} 個工具到 API`);
+        
+        // 記錄完整請求到文件
+        const fs = require('fs');
+        const debugRequest = {
+          model: this.model,
+          messages: messages.map((m: any) => ({
+            role: m.role,
+            content: typeof m.content === 'string' ? m.content.substring(0, 500) + (m.content.length > 500 ? '...(truncated)' : '') : m.content
+          })),
+          tools: tools.length,
+          stream: true,
+        };
+        fs.appendFileSync('debug-api-request.log', `\n=== API 請求 ===\n${JSON.stringify(debugRequest, null, 2)}\n`, 'utf-8');
       }
     }
 

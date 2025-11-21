@@ -82,15 +82,18 @@ bailu
 
 ### Q: 調試輸出顯示工具已發送，但 AI 還是不調用？
 
-這是 **Test-Hide 模型的已知限制**。該模型：
-- 可能不完全支持 OpenAI function calling 格式
+**v0.2.0+ 默認使用 bailu-2.6**，工具調用支持較好。如果使用 Test-Hide 等舊模型遇到此問題：
+
+**Test-Hide 模型的已知限制**：
+- 不完全支持 OpenAI function calling 格式
 - 更依賴 system prompt 中的文字說明
 - 對工具調用的理解不夠準確
 
 **建議：**
-1. 切換到 `bailu-2.5-pro` 或其他支持更好的模型
-2. 使用 `bailu fix` 而非 `bailu chat`
-3. 在提示中明確說明：「請使用 write_file 工具」
+1. 使用默認的 `bailu-2.6` 模型（無需設置）
+2. 或切換到 `bailu-2.6-preview`、`bailu-2.6-fast-thinking`
+3. 使用 `bailu fix` 而非 `bailu chat`
+4. 在提示中明確說明：「請使用 write_file 工具」
 
 ### Q: 如何查看發送給 API 的完整請求？
 

@@ -10,6 +10,7 @@ export const readFileTool: Tool = {
   definition: {
     name: "read_file",
     description: "讀取指定路徑的文件內容",
+    safe: true, // 只读操作，自动批准
     parameters: [
       {
         name: "path",

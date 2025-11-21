@@ -39,13 +39,20 @@ export function parseToolCalls(content: string): {
       const paramsContent = invokeMatch[2];
 
       // 提取參數 <param name="...">...</param>
+      // 使用 [\s\S]*? 支持多行和特殊字符（如 <, >）
       const params: Record<string, any> = {};
-      const paramRegex = /<param\s+name="([^"]+)">([^<]*)<\/param>/g;
+      const paramRegex = /<param\s+name="([^"]+)">([\s\S]*?)<\/param>/g;
       const paramMatches = Array.from(paramsContent.matchAll(paramRegex));
 
       for (const paramMatch of paramMatches) {
         const paramName = paramMatch[1];
         let paramValue: any = paramMatch[2].trim();
+
+        // 處理 CDATA 格式：<![CDATA[...]]>
+        const cdataMatch = paramValue.match(/^<!\[CDATA\[([\s\S]*?)\]\]>$/);
+        if (cdataMatch) {
+          paramValue = cdataMatch[1];
+        }
 
         // 嘗試解析 JSON（用於 array/object）
         if (paramValue.startsWith("[") || paramValue.startsWith("{")) {

@@ -4,7 +4,7 @@
 
 import chalk from "chalk";
 import { ToolRegistry } from "./registry";
-import { ToolCall, ToolResult, ToolExecutionContext } from "./types";
+import { ToolCall, ToolResult, ToolExecutionContext, ToolDefinition, ToolParameter } from "./types";
 import readline from "readline";
 
 export class ToolExecutor {
@@ -27,7 +27,7 @@ export class ToolExecutor {
     }
 
     // 驗證參數
-    const validationError = this.validateParams(tool.definition.parameters, toolCall.params);
+    const validationError = this.validateParams(toolCall, tool.definition);
     if (validationError) {
       return {
         success: false,
@@ -37,15 +37,20 @@ export class ToolExecutor {
 
     // 根據安全模式決定是否需要確認
     if (this.context.safetyMode === "review") {
-      const approved = await this.requestApproval(toolCall);
-      if (!approved) {
-        return {
-          success: false,
-          error: "用戶取消了操作",
-        };
+      // 安全工具（只读操作）自动批准，无需用户确认
+      if (tool.definition.safe) {
+        console.log(chalk.gray(`[自動執行] ${this.humanizeToolCall(toolCall)}`));
+      } else {
+        const approved = await this.requestApproval(toolCall);
+        if (!approved) {
+          return {
+            success: false,
+            error: "用戶取消了操作",
+          };
+        }
+        // 確認後添加換行，避免輸出混亂
+        console.log();
       }
-      // 確認後添加換行，避免輸出混亂
-      console.log();
     }
 
     // dry-run 模式：只顯示計畫，不執行
@@ -108,20 +113,21 @@ export class ToolExecutor {
   /**
    * 驗證工具參數
    */
-  private validateParams(
-    paramDefs: Array<{ name: string; required?: boolean; description?: string }>,
-    params: Record<string, any>
-  ): string | null {
-    const missingParams: string[] = [];
-    for (const paramDef of paramDefs) {
-      if (paramDef.required && !(paramDef.name in params)) {
-        const desc = paramDef.description ? ` (${paramDef.description})` : '';
-        missingParams.push(`${paramDef.name}${desc}`);
+  private validateParams(toolCall: ToolCall, definition: ToolDefinition): string | null {
+    const requiredParams = definition.parameters.filter((p: ToolParameter) => p.required);
+
+    for (const param of requiredParams) {
+      if (!(param.name in toolCall.params)) {
+        // 調試：記錄缺失的參數和當前已有的參數
+        if (process.env.BAILU_DEBUG) {
+          console.log(chalk.yellow(`[DEBUG] 工具: ${toolCall.tool}`));
+          console.log(chalk.yellow(`[DEBUG] 缺失參數: ${param.name}`));
+          console.log(chalk.yellow(`[DEBUG] 已有參數: ${Object.keys(toolCall.params).join(', ') || '(無)'}`));
+        }
+        return `缺少必需參數: ${param.name} (${param.description})。請確認工具調用的 XML 格式包含所有必需的 <param> 標籤。`;
       }
     }
-    if (missingParams.length > 0) {
-      return `缺少必需參數: ${missingParams.join(', ')}。請確認工具調用的 XML 格式包含所有必需的 <param> 標籤。`;
-    }
+
     return null;
   }
 

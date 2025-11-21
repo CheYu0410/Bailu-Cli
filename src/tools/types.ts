@@ -14,6 +14,7 @@ export interface ToolDefinition {
   name: string;
   description: string;
   parameters: ToolParameter[];
+  safe?: boolean; // 标记为安全的只读工具，review 模式下自动批准
 }
 
 export interface ToolCall {

@@ -25,6 +25,8 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+debug-llm-response.log
+debug-api-request.log
 
 # Local data
 .bailu/

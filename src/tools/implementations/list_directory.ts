@@ -10,6 +10,7 @@ export const listDirectoryTool: Tool = {
   definition: {
     name: "list_directory",
     description: "列出指定目錄下的文件和子目錄",
+    safe: true, // 只读操作，自动批准
     parameters: [
       {
         name: "path",
