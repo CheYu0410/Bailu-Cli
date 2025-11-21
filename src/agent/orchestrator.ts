@@ -8,6 +8,7 @@ import { ToolRegistry } from "../tools/registry";
 import { ToolExecutor } from "../tools/executor";
 import { parseToolCalls, formatToolResult } from "../tools/parser";
 import { ToolExecutionContext, ToolDefinition, ToolCall } from "../tools/types";
+import { ContextMemory } from "./memory";
 
 /**
  * 工具調用人性化描述
@@ -59,6 +60,7 @@ export class AgentOrchestrator {
   private maxIterations: number;
   private verbose: boolean;
   private autoCompress: boolean;
+  private memory: ContextMemory; // 上下文记忆
 
   constructor(options: OrchestratorOptions) {
     this.llmClient = options.llmClient;
@@ -67,6 +69,7 @@ export class AgentOrchestrator {
     this.maxIterations = options.maxIterations || Infinity; // 默认无限
     this.verbose = options.verbose || false;
     this.autoCompress = true; // 自动压缩
+    this.memory = new ContextMemory(); // 初始化记忆系统
   }
 
   /**
@@ -123,6 +126,12 @@ export class AgentOrchestrator {
     let iterations = 0;
     let toolCallsExecuted = 0;
     let finalResponse = "";
+
+    // 將記憶摘要添加到 system message
+    const memorySummary = this.memory.generateMemorySummary();
+    if (memorySummary && messages[0]?.role === "system") {
+      messages[0].content = `${messages[0].content}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n📝 上下文記憶\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n${memorySummary}\n`;
+    }
 
     // 準備工具定義
     const toolDefinitions = this.toolRegistry.getAllDefinitions();
@@ -215,6 +224,30 @@ export class AgentOrchestrator {
             : `錯誤: ${result.error}`;
 
           toolResults.push(`[工具: ${toolCall.tool}]\n${resultText}`);
+
+          // 記錄到記憶系統
+          this.memory.recordToolCall({
+            tool: toolCall.tool,
+            params: toolCall.params,
+            result: {
+              success: result.success,
+              output: result.output,
+              error: result.error,
+            },
+            timestamp: new Date(),
+          });
+
+          // 針對特定工具記錄到對應的記憶中
+          if (result.success) {
+            if (toolCall.tool === 'list_directory') {
+              const files = result.output?.split('\n').filter(f => f.trim()) || [];
+              this.memory.recordListDirectory(toolCall.params.path || '.', files);
+            } else if (toolCall.tool === 'read_file') {
+              this.memory.recordReadFile(toolCall.params.path, result.output || '');
+            } else if (toolCall.tool === 'write_file') {
+              this.memory.recordFileModification(toolCall.params.path);
+            }
+          }
 
           // 顯示工具執行結果給用戶
           if (result.success) {
@@ -418,6 +451,27 @@ ${toolsSection}
         return `### ${tool.name}\n${tool.description}\n\n參數:\n${params}`;
       })
       .join("\n\n");
+  }
+
+  /**
+   * 獲取記憶系統實例
+   */
+  getMemory(): ContextMemory {
+    return this.memory;
+  }
+
+  /**
+   * 記錄用戶請求
+   */
+  recordUserRequest(request: string): void {
+    this.memory.recordUserRequest(request);
+  }
+
+  /**
+   * 記錄重要決定
+   */
+  recordDecision(decision: string): void {
+    this.memory.recordDecision(decision);
   }
 }
 
