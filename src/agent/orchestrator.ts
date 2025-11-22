@@ -9,6 +9,7 @@ import { ToolExecutor } from "../tools/executor";
 import { parseToolCalls, formatToolResult } from "../tools/parser";
 import { ToolExecutionContext, ToolDefinition, ToolCall } from "../tools/types";
 import { ContextMemory } from "./memory";
+import { DependencyAnalyzer } from "../analysis/dependencies";
 
 /**
  * 工具調用人性化描述
@@ -61,6 +62,7 @@ export class AgentOrchestrator {
   private verbose: boolean;
   private autoCompress: boolean;
   private memory: ContextMemory; // 上下文记忆
+  private dependencyAnalyzer: DependencyAnalyzer; // 依赖分析器
 
   constructor(options: OrchestratorOptions) {
     this.llmClient = options.llmClient;
@@ -70,6 +72,7 @@ export class AgentOrchestrator {
     this.verbose = options.verbose || false;
     this.autoCompress = true; // 自动压缩
     this.memory = new ContextMemory(); // 初始化记忆系统
+    this.dependencyAnalyzer = new DependencyAnalyzer(options.executionContext.workspaceRoot); // 初始化依赖分析器
   }
 
   /**
@@ -472,6 +475,13 @@ ${toolsSection}
    */
   recordDecision(decision: string): void {
     this.memory.recordDecision(decision);
+  }
+
+  /**
+   * 獲取依賴分析器實例
+   */
+  getDependencyAnalyzer(): DependencyAnalyzer {
+    return this.dependencyAnalyzer;
   }
 }
 
