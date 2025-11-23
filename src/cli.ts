@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// 加载 .env 文件（必须在最开始，优先级最低）
+import dotenv from "dotenv";
+dotenv.config(); // 从当前目录加载 .env
+
 import { Command } from "commander";
 import fs from "fs";
 import path from "path";

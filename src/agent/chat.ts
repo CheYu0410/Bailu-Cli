@@ -11,6 +11,8 @@ import { AgentOrchestrator } from "./orchestrator";
 import { ToolExecutionContext } from "../tools/types";
 import { handleSlashCommand } from "./slash-commands";
 import { showSlashCommandPicker } from "./autocomplete";
+import { HistoryManager } from "../utils/history";
+import { getHistoryPath } from "../config";
 
 export interface ChatSessionOptions {
   llmClient: LLMClient;
@@ -25,6 +27,7 @@ export class ChatSession {
   private messages: ChatMessage[];
   private rl: readline.Interface;
   private workspaceContext: WorkspaceContext;
+  private historyManager: HistoryManager;
   private sessionStats = {
     messagesCount: 0,
     toolCallsCount: 0,
@@ -50,6 +53,9 @@ export class ChatSession {
       },
     ];
 
+    // 初始化历史记录管理器
+    this.historyManager = new HistoryManager(getHistoryPath());
+
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -63,6 +69,23 @@ export class ChatSession {
   async start(): Promise<void> {
     this.printWelcome();
 
+    // Ctrl+C 处理：第一次提示，第二次（3秒内）退出
+    let lastSigintTime: number | null = null;
+    process.on('SIGINT', () => {
+      const now = Date.now();
+      
+      if (lastSigintTime && (now - lastSigintTime) < 3000) {
+        // 3秒内第二次 Ctrl+C，退出
+        console.log(chalk.gray("\n\n再見！"));
+        process.exit(0);
+      } else {
+        // 第一次 Ctrl+C，提示
+        console.log(chalk.yellow("\n\n[提示] 再按一次 Ctrl+C (3秒内) 退出，或輸入 'exit' 退出"));
+        lastSigintTime = now;
+        this.rl.prompt();
+      }
+    });
+
     this.rl.prompt();
 
     this.rl.on("line", async (input) => {
@@ -72,6 +95,9 @@ export class ChatSession {
         this.rl.prompt();
         return;
       }
+
+      // 保存到历史记录
+      this.historyManager.add(trimmed);
 
       // 暫停 readline 以避免在處理期間顯示多餘的 prompt
       this.rl.pause();

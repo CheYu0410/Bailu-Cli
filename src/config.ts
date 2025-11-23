@@ -27,6 +27,13 @@ function getConfigPath(): string {
   return path.join(getConfigDir(), "config.json");
 }
 
+/**
+ * 获取命令历史文件路径
+ */
+export function getHistoryPath(): string {
+  return path.join(getConfigDir(), "history.txt");
+}
+
 export function loadCliConfig(): BailuCliConfig {
   const p = getConfigPath();
   if (!fs.existsSync(p)) return {};
