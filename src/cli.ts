@@ -258,7 +258,8 @@ async function executeTask(
 
 function loadLogo(): string | null {
   try {
-    const logoPath = path.resolve(process.cwd(), "BAILU CLI.txt");
+    // 從 CLI 安裝目錄加載 logo（而不是用戶的工作目錄）
+    const logoPath = path.resolve(__dirname, "..", "BAILU CLI.txt");
     if (fs.existsSync(logoPath)) {
       return fs.readFileSync(logoPath, "utf8");
     }
