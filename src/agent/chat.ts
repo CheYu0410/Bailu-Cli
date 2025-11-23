@@ -69,6 +69,7 @@ export class ChatSession {
    */
   async start(): Promise<void> {
     this.printWelcome();
+    
 
     // Ctrl+C 处理：第一次提示，第二次（3秒内）退出
     let lastSigintTime: number | null = null;
@@ -123,14 +124,11 @@ export class ChatSession {
       if (trimmed.startsWith("/")) {
         // 如果只輸入了 /，顯示命令選擇器
         if (trimmed === "/") {
-          console.log('[DEBUG] 开始显示命令选择器');
           const selectedCommand = await showSlashCommandPicker('/');
-          console.log(`[DEBUG] 选择器返回: ${selectedCommand}`);
           
           if (selectedCommand) {
             // 執行選中的命令
             this.historyManager.add(selectedCommand);
-            console.log('[DEBUG] 开始执行命令:', selectedCommand);
 
             const result = await handleSlashCommand(selectedCommand, {
               llmClient: this.llmClient,
@@ -139,15 +137,12 @@ export class ChatSession {
               sessionStats: this.sessionStats,
             });
 
-            console.log('[DEBUG] 命令执行完成, handled:', result.handled, 'shouldExit:', result.shouldExit);
-
             if (result.handled) {
               if (result.response) {
                 console.log(result.response);
               }
 
               if (result.shouldExit) {
-                console.log('[DEBUG] 命令要求退出');
                 console.log(chalk.gray("再見！"));
                 this.rl.close();
                 process.exit(0);
@@ -160,17 +155,13 @@ export class ChatSession {
             }
           }
           
-          console.log('[DEBUG] 准备恢复 readline 并显示提示符');
-          
           // 注意：line 事件开始时调用了 pause()，现在需要恢复
           // 使用 setImmediate 确保在当前事件循环结束后再恢复
           setImmediate(() => {
-            console.log('[DEBUG] setImmediate 中恢复 readline');
             this.rl.resume();
             this.rl.prompt();
           });
           
-          console.log('[DEBUG] 已安排 resume() 和 prompt() 调用');
           return;
         }
 
@@ -236,9 +227,6 @@ export class ChatSession {
     });
 
     this.rl.on("close", () => {
-      console.log('[DEBUG] readline close 事件被触发！');
-      console.error('[DEBUG] 堆栈跟踪:');
-      console.trace();
       console.log(chalk.gray("\n再見！"));
       process.exit(0);
     });
