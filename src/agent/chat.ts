@@ -123,42 +123,40 @@ export class ChatSession {
       if (trimmed.startsWith("/")) {
         // 如果只輸入了 /，顯示命令選擇器
         if (trimmed === "/") {
-          try {
-            const selectedCommand = await showSlashCommandPicker('/');
-            
-            if (selectedCommand) {
-              // 執行選中的命令
-              console.log(chalk.cyan(`\n你: ${selectedCommand}`));
-              this.historyManager.add(selectedCommand);
+          const selectedCommand = await showSlashCommandPicker('/');
+          
+          if (selectedCommand) {
+            // 執行選中的命令
+            this.historyManager.add(selectedCommand);
 
-              const result = await handleSlashCommand(selectedCommand, {
-                llmClient: this.llmClient,
-                workspaceContext: this.workspaceContext,
-                messages: this.messages,
-                sessionStats: this.sessionStats,
-              });
+            const result = await handleSlashCommand(selectedCommand, {
+              llmClient: this.llmClient,
+              workspaceContext: this.workspaceContext,
+              messages: this.messages,
+              sessionStats: this.sessionStats,
+            });
 
-              if (result.handled) {
-                if (result.response) {
-                  console.log(result.response);
-                }
+            if (result.handled) {
+              if (result.response) {
+                console.log(result.response);
+              }
 
-                if (result.shouldExit) {
-                  console.log(chalk.gray("再見！"));
-                  this.rl.close();
-                  process.exit(0);
-                }
+              if (result.shouldExit) {
+                console.log(chalk.gray("再見！"));
+                this.rl.close();
+                process.exit(0);
+              }
 
-                if (result.shouldClearHistory) {
-                  this.messages = [this.messages[0]];
-                  this.sessionStats.messagesCount = 0;
-                }
+              if (result.shouldClearHistory) {
+                this.messages = [this.messages[0]];
+                this.sessionStats.messagesCount = 0;
               }
             }
-          } finally {
-            this.rl.resume();
-            this.rl.prompt();
           }
+          
+          // inquirer 会自动恢复 readline 状态
+          this.rl.resume();
+          this.rl.prompt();
           return;
         }
 
