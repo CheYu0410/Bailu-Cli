@@ -78,8 +78,19 @@ export async function showSlashCommandPicker(initialInput: string = "/"): Promis
     ensureKeypressEvents();
     enterRawMode();
 
+    // 忽略初始按键的标志（防止触发选择器的 Enter 被立即捕获）
+    let ignoreInitialKeys = true;
+    const ignoreTimeout = setTimeout(() => {
+      ignoreInitialKeys = false;
+    }, 100); // 100ms 后开始接受按键
+
     const onKeypress = (str: string, key: any) => {
       if (!key) return;
+
+      // 忽略初始的按键（防止触发选择器的 Enter 被捕获）
+      if (ignoreInitialKeys) {
+        return;
+      }
 
       if (key.name === "up") {
         selectedIndex = Math.max(0, selectedIndex - 1);
@@ -109,6 +120,9 @@ export async function showSlashCommandPicker(initialInput: string = "/"): Promis
     };
 
     const cleanup = () => {
+      // 清理 timeout
+      clearTimeout(ignoreTimeout);
+      
       // 移除事件監聽器
       process.stdin.off("keypress", onKeypress);
       
