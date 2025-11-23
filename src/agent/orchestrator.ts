@@ -316,9 +316,12 @@ export class AgentOrchestrator {
 
         // 將工具結果作為 user role 消息回饋給 LLM
         // 注意：白鹿 API 可能不支持標準的 tool role，改用 user role
+        // 強制要求 AI 解釋結果（解決 AI 只顯示原始輸出不解釋的問題）
+        const toolResultsWithPrompt = `[工具執行結果]\n${toolResults.join("\n\n")}\n\n[重要提示] 請向用戶簡潔地解釋以上結果的含義。不要只顯示原始數據，要說明這些結果代表什麼、有什麼重要信息。`;
+        
         messages.push({
           role: "user",
-          content: `[工具執行結果]\n${toolResults.join("\n\n")}`,
+          content: toolResultsWithPrompt,
         });
 
         // 如果是 dry-run，在第一輪後停止
