@@ -120,66 +120,27 @@ export class ChatSession {
 
       // 處理斜線命令
       if (trimmed.startsWith("/")) {
-        // 如果只輸入了 "/"，顯示命令選擇器
-        if (trimmed === "/") {
-          // 完全關閉當前 readline，避免衝突
-          this.rl.pause();
-          
-          try {
-            const selectedCommand = await showSlashCommandPicker();
-            
-            if (selectedCommand) {
-              // 手動處理選中的命令
-              const slashResult = await handleSlashCommand(selectedCommand, {
-                llmClient: this.llmClient,
-                workspaceContext: this.workspaceContext,
-                messages: this.messages,
-                sessionStats: this.sessionStats,
-              });
-
-              if (slashResult.handled) {
-                if (slashResult.response) {
-                  console.log(slashResult.response);
-                }
-
-                if (slashResult.shouldExit) {
-                  console.log(chalk.gray("再見！"));
-                  this.rl.close();
-                  process.exit(0);
-                }
-
-                if (slashResult.shouldClearHistory) {
-                  this.messages = [this.messages[0]];
-                  this.sessionStats.messagesCount = 0;
-                }
-              }
-            }
-          } finally {
-            this.rl.resume();
-            this.rl.prompt();
-          }
-          return;
-        }
-
-        const slashResult = await handleSlashCommand(trimmed, {
+        // 先嘗試直接執行命令
+        const directResult = await handleSlashCommand(trimmed, {
           llmClient: this.llmClient,
           workspaceContext: this.workspaceContext,
           messages: this.messages,
           sessionStats: this.sessionStats,
         });
 
-        if (slashResult.handled) {
-          if (slashResult.response) {
-            console.log(slashResult.response);
+        // 如果命令被識別並處理了
+        if (directResult.handled) {
+          if (directResult.response) {
+            console.log(directResult.response);
           }
 
-          if (slashResult.shouldExit) {
+          if (directResult.shouldExit) {
             console.log(chalk.gray("再見！"));
             this.rl.close();
             process.exit(0);
           }
 
-          if (slashResult.shouldClearHistory) {
+          if (directResult.shouldClearHistory) {
             this.messages = [this.messages[0]]; // 保留 system message
             this.sessionStats.messagesCount = 0;
           }
@@ -188,6 +149,44 @@ export class ChatSession {
           this.rl.prompt();
           return;
         }
+
+        // 命令未被識別，顯示命令選擇器
+        this.rl.pause();
+        
+        try {
+          const selectedCommand = await showSlashCommandPicker(trimmed);
+          
+          if (selectedCommand) {
+            // 執行選中的命令
+            const slashResult = await handleSlashCommand(selectedCommand, {
+              llmClient: this.llmClient,
+              workspaceContext: this.workspaceContext,
+              messages: this.messages,
+              sessionStats: this.sessionStats,
+            });
+
+            if (slashResult.handled) {
+              if (slashResult.response) {
+                console.log(slashResult.response);
+              }
+
+              if (slashResult.shouldExit) {
+                console.log(chalk.gray("再見！"));
+                this.rl.close();
+                process.exit(0);
+              }
+
+              if (slashResult.shouldClearHistory) {
+                this.messages = [this.messages[0]];
+                this.sessionStats.messagesCount = 0;
+              }
+            }
+          }
+        } finally {
+          this.rl.resume();
+          this.rl.prompt();
+        }
+        return;
       }
 
       // 將用戶消息加入歷史

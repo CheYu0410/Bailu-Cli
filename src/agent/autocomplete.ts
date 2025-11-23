@@ -23,17 +23,35 @@ export const slashCommands: SlashCommandDef[] = [
   { command: "/compress", description: "壓縮對話上下文（保留最近 3 輪）" },
   { command: "/settings", description: "查看或修改配置", usage: "/settings [set <key> <value>]" },
   { command: "/mode", description: "切換安全模式", usage: "/mode [dry-run|review|auto-apply]" },
+  { command: "/undo", alias: "/u", description: "回滾最近的文件修改", usage: "/undo [數字]" },
+  { command: "/commit", description: "使用 AI 生成提交信息並自動提交" },
+  { command: "/workspace", description: "查看工作區信息" },
   { command: "/clear", alias: "/c", description: "清空對話歷史" },
   { command: "/exit", alias: "/q", description: "退出 CLI" },
 ];
 
 /**
  * 顯示斜線命令選擇器（使用自定義 readline UI）
+ * @param initialInput 初始輸入，用於過濾命令
  */
-export async function showSlashCommandPicker(): Promise<string | null> {
-  console.log(chalk.cyan("\n📋 可用的斜線命令（用上下鍵選擇，Enter 確認，Esc 取消）：\n"));
+export async function showSlashCommandPicker(initialInput: string = "/"): Promise<string | null> {
+  // 根據輸入過濾命令
+  const filteredCommands = filterCommands(initialInput);
+  
+  if (filteredCommands.length === 0) {
+    console.log(chalk.yellow("\n沒有匹配的命令"));
+    return null;
+  }
+  
+  // 如果只有一個匹配且完全匹配，直接返回
+  if (filteredCommands.length === 1 && filteredCommands[0].command === initialInput) {
+    return filteredCommands[0].command;
+  }
+  
+  const inputHint = initialInput === "/" ? "" : ` (匹配 "${initialInput}")`;
+  console.log(chalk.cyan(`\n📋 可用的斜線命令${inputHint}（用上下鍵選擇，Enter 確認，Esc 取消）：\n`));
 
-  const commands: Array<{ display: string; value: string | null }> = slashCommands.map((cmd) => ({
+  const commands: Array<{ display: string; value: string | null }> = filteredCommands.map((cmd) => ({
     display: formatCommandDisplay(cmd),
     value: cmd.command,
   }));
