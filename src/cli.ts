@@ -280,8 +280,6 @@ function printBanner() {
 }
 
 async function main() {
-  printBanner();
-
   const program = new Command();
   program
     .name("bailu")
