@@ -304,13 +304,13 @@ export class AgentOrchestrator {
           }
         }
         
-        // 智能停止：同一工具连续失败 5 次则停止（避免死循环）
-        if (consecutiveFailures >= 5) {
+        // 智能停止：同一工具连续失败 3 次则停止（避免死循环）
+        if (consecutiveFailures >= 3) {
           console.log(chalk.red(`\n[ERROR] 工具 "${lastFailedTool}" 連續失敗 ${consecutiveFailures} 次，停止執行`));
-          console.log(chalk.yellow(`建議：`));
+          console.log(chalk.yellow(`\n建議：`));
           console.log(chalk.cyan(`   1. 檢查工具參數是否正確`));
           console.log(chalk.cyan(`   2. 嘗試更明確的指令`));
-          console.log(chalk.cyan(`   3. 切換到其他模型或手動完成\n`));
+          console.log(chalk.cyan(`   3. 換個方式或手動完成此操作\n`));
           break;
         }
 
