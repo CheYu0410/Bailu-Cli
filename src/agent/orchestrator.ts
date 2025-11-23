@@ -183,8 +183,9 @@ export class AgentOrchestrator {
             assistantResponse = await this.streamResponse(messages, openaiTools, thinkingSpinner);
             thinkingSpinner = null; // 已在 streamResponse 中停止
           } else {
-            // 後續輪次：靜默處理（避免干擾用戶）
-            assistantResponse = await this.streamResponseSilent(messages, openaiTools);
+            // 後續輪次：也要顯示響應（讓用戶看到對工具結果的解釋）
+            // 不再使用 streamResponseSilent，確保用戶能看到 AI 的解釋
+            assistantResponse = await this.streamResponse(messages, openaiTools, null);
           }
         } else {
           // 非流式模式（較少使用）
