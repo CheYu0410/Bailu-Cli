@@ -79,6 +79,10 @@ export async function handleSlashCommand(
     case "/mode":
       return await handleMode(args);
 
+    case "/undo":
+    case "/u":
+      return await handleUndo(args);
+
     case "/exit":
     case "/quit":
     case "/q":
@@ -122,6 +126,7 @@ ${chalk.yellow("配置管理：")}
 ${chalk.yellow("進階功能：")}
   ${chalk.green("/compress")}         - 壓縮對話上下文（保留摘要）
   ${chalk.green("/workspace")}        - 查看工作區信息
+  ${chalk.green("/undo, /u")}        - 回滾最近的文件修改
 
 ${chalk.gray("提示：斜線命令不會發送給 AI，只在本地處理")}
 `;
@@ -382,6 +387,102 @@ async function handleMode(args: string[]): Promise<SlashCommandResult> {
     handled: true,
     response: chalk.green(`✓ 已切換到 ${chalk.bold(newMode)} 模式`),
   };
+}
+
+/**
+ * /undo - 回滚最近的文件修改
+ */
+async function handleUndo(args: string[]): Promise<SlashCommandResult> {
+  const fs = require("fs");
+  const path = require("path");
+  
+  try {
+    // 查找所有 .backup 文件
+    const findBackupFiles = (dir: string, fileList: string[] = []): string[] => {
+      const files = fs.readdirSync(dir);
+      
+      for (const file of files) {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        
+        if (stat.isDirectory() && !file.startsWith('.') && file !== 'node_modules') {
+          findBackupFiles(filePath, fileList);
+        } else if (file.endsWith('.backup')) {
+          fileList.push(filePath);
+        }
+      }
+      
+      return fileList;
+    };
+    
+    const backupFiles = findBackupFiles(process.cwd());
+    
+    if (backupFiles.length === 0) {
+      return {
+        handled: true,
+        response: chalk.yellow("沒有找到可以回滾的備份文件"),
+      };
+    }
+    
+    // 按修改时间排序，最新的在前
+    backupFiles.sort((a, b) => {
+      const statA = fs.statSync(a);
+      const statB = fs.statSync(b);
+      return statB.mtimeMs - statA.mtimeMs;
+    });
+    
+    // 如果指定了文件索引
+    if (args.length > 0) {
+      const index = parseInt(args[0], 10) - 1;
+      if (index < 0 || index >= backupFiles.length) {
+        return {
+          handled: true,
+          response: chalk.red(`無效的索引。請使用 1-${backupFiles.length} 之間的數字`),
+        };
+      }
+      
+      const backupPath = backupFiles[index];
+      const originalPath = backupPath.replace(/\.backup$/, '');
+      
+      // 恢复文件
+      fs.copyFileSync(backupPath, originalPath);
+      
+      return {
+        handled: true,
+        response: chalk.green(`✓ 已恢復文件: ${path.relative(process.cwd(), originalPath)}`),
+      };
+    }
+    
+    // 显示可用的备份列表
+    let response = chalk.cyan("\n可回滾的文件（按時間排序）：\n\n");
+    
+    backupFiles.slice(0, 10).forEach((backupPath, index) => {
+      const originalPath = backupPath.replace(/\.backup$/, '');
+      const relativePath = path.relative(process.cwd(), originalPath);
+      const stat = fs.statSync(backupPath);
+      const time = new Date(stat.mtime).toLocaleString('zh-CN');
+      
+      response += `  ${chalk.green(index + 1)}. ${chalk.bold(relativePath)}\n`;
+      response += `     ${chalk.gray(`備份時間: ${time}`)}\n\n`;
+    });
+    
+    if (backupFiles.length > 10) {
+      response += chalk.gray(`... 還有 ${backupFiles.length - 10} 個備份\n\n`);
+    }
+    
+    response += chalk.yellow(`\n使用方法: ${chalk.bold("/undo <數字>")} 來恢復指定的文件\n`);
+    response += chalk.gray(`例如: /undo 1\n`);
+    
+    return {
+      handled: true,
+      response,
+    };
+  } catch (error) {
+    return {
+      handled: true,
+      response: chalk.red(`錯誤: ${error instanceof Error ? error.message : String(error)}`),
+    };
+  }
 }
 
 /**

@@ -1,0 +1,22 @@
+{
+  "//": "Bailu CLI 项目级配置文件示例",
+  "//": "将此文件重命名为 .bailu.config.json 并放在项目根目录",
+  
+  "//model": "指定默认使用的模型",
+  "model": "bailu-Edge",
+  
+  "//baseUrl": "API 基础 URL（通常不需要修改）",
+  "baseUrl": "https://bailucode.com/openapi/v1",
+  
+  "//safetyMode": "安全模式：dry-run（只显示计划）| review（需要确认）| auto-apply（自动执行）",
+  "safetyMode": "review",
+  
+  "//maxIterations": "最大迭代次数",
+  "maxIterations": 10,
+  
+  "//autoCompress": "自动压缩上下文",
+  "autoCompress": true,
+  
+  "//verbose": "详细输出模式",
+  "verbose": false
+}

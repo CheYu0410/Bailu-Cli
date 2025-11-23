@@ -7,6 +7,10 @@ export interface BailuCliConfig {
   apiKey?: string;
   baseUrl?: string;
   model?: string;
+  safetyMode?: "dry-run" | "review" | "auto-apply";
+  maxIterations?: number;
+  autoCompress?: boolean;
+  verbose?: boolean;
 }
 
 function getConfigDir(): string {
@@ -32,6 +36,87 @@ function getConfigPath(): string {
  */
 export function getHistoryPath(): string {
   return path.join(getConfigDir(), "history.txt");
+}
+
+/**
+ * 获取项目级配置文件路径
+ * 在当前工作目录或向上查找
+ */
+function findProjectConfig(startDir: string = process.cwd()): string | null {
+  let currentDir = startDir;
+  const configFilenames = [".bailu.config.json", ".bailurc.json", ".bailurc"];
+  
+  while (true) {
+    for (const filename of configFilenames) {
+      const configPath = path.join(currentDir, filename);
+      if (fs.existsSync(configPath)) {
+        return configPath;
+      }
+    }
+    
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      // 已到根目录
+      break;
+    }
+    currentDir = parentDir;
+  }
+  
+  return null;
+}
+
+/**
+ * 加载项目级配置
+ */
+export function loadProjectConfig(): BailuCliConfig {
+  const configPath = findProjectConfig();
+  if (!configPath) return {};
+  
+  try {
+    const raw = fs.readFileSync(configPath, "utf8");
+    const parsed = JSON.parse(raw) as BailuCliConfig;
+    return parsed || {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * 合并所有配置源
+ * 优先级：CLI 参数 > 项目配置 > 用户配置 > 环境变量 > 默认值
+ */
+export function mergeConfigs(cliArgs: Partial<BailuCliConfig> = {}): BailuCliConfig {
+  // 默认值
+  const defaults: BailuCliConfig = {
+    baseUrl: "https://bailucode.com/openapi/v1",
+    model: "bailu-Edge",
+    safetyMode: "review",
+    maxIterations: 10,
+    autoCompress: true,
+    verbose: false,
+  };
+  
+  // 环境变量
+  const envConfig: BailuCliConfig = {};
+  if (process.env.BAILU_API_KEY) envConfig.apiKey = process.env.BAILU_API_KEY;
+  if (process.env.BAILU_BASE_URL) envConfig.baseUrl = process.env.BAILU_BASE_URL;
+  if (process.env.BAILU_MODEL) envConfig.model = process.env.BAILU_MODEL;
+  if (process.env.BAILU_MODE) envConfig.safetyMode = process.env.BAILU_MODE as any;
+  
+  // 用户级配置
+  const userConfig = loadCliConfig();
+  
+  // 项目级配置
+  const projectConfig = loadProjectConfig();
+  
+  // 合并（后者覆盖前者）
+  return {
+    ...defaults,
+    ...envConfig,
+    ...userConfig,
+    ...projectConfig,
+    ...cliArgs,
+  };
 }
 
 export function loadCliConfig(): BailuCliConfig {
