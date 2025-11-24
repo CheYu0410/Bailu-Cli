@@ -25,6 +25,9 @@ export const slashCommands: SlashCommandDef[] = [
   { command: "/undo", alias: "/u", description: "回滾最近的文件修改", usage: "/undo [數字]" },
   { command: "/commit", description: "使用 AI 生成提交信息並自動提交" },
   { command: "/workspace", description: "查看工作區信息" },
+  { command: "/add", description: "添加文件到上下文", usage: "/add <文件路径>" },
+  { command: "/drop", description: "從上下文移除文件", usage: "/drop <文件路径> | all" },
+  { command: "/files", description: "列出當前上下文中的所有文件" },
   { command: "/clear", alias: "/c", description: "清空對話歷史" },
   { command: "/exit", alias: "/q", description: "退出 CLI" },
 ];

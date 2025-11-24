@@ -28,6 +28,7 @@ export class ChatSession {
   private rl: readline.Interface;
   private workspaceContext: WorkspaceContext;
   private historyManager: HistoryManager;
+  private activeFiles: Set<string> = new Set(); // 当前上下文中的文件
   private sessionStats = {
     messagesCount: 0,
     toolCallsCount: 0,
@@ -134,6 +135,12 @@ export class ChatSession {
               workspaceContext: this.workspaceContext,
               messages: this.messages,
               sessionStats: this.sessionStats,
+              fileManager: {
+                addFile: this.addFile.bind(this),
+                removeFile: this.removeFile.bind(this),
+                clearFiles: this.clearFiles.bind(this),
+                getActiveFiles: this.getActiveFiles.bind(this),
+              },
             });
 
             if (result.handled) {
@@ -190,6 +197,12 @@ export class ChatSession {
           workspaceContext: this.workspaceContext,
           messages: this.messages,
           sessionStats: this.sessionStats,
+          fileManager: {
+            addFile: this.addFile.bind(this),
+            removeFile: this.removeFile.bind(this),
+            clearFiles: this.clearFiles.bind(this),
+            getActiveFiles: this.getActiveFiles.bind(this),
+          },
         });
 
         if (slashResult.handled) {
@@ -711,6 +724,34 @@ export class ChatSession {
     console.log(chalk.gray(`  模式: ${chalk.yellow(safetyMode)}`));
     console.log(chalk.gray(`  工作區: ${chalk.yellow(this.workspaceContext.rootPath)}`));
     console.log();
+  }
+
+  /**
+   * 添加文件到上下文
+   */
+  public addFile(filepath: string): void {
+    this.activeFiles.add(filepath);
+  }
+
+  /**
+   * 从上下文移除文件
+   */
+  public removeFile(filepath: string): void {
+    this.activeFiles.delete(filepath);
+  }
+
+  /**
+   * 清空所有文件
+   */
+  public clearFiles(): void {
+    this.activeFiles.clear();
+  }
+
+  /**
+   * 获取所有活跃文件
+   */
+  public getActiveFiles(): string[] {
+    return Array.from(this.activeFiles);
   }
 }
 
