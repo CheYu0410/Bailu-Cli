@@ -62,13 +62,17 @@ export async function showSlashCommandPicker(initialInput: string = "/"): Promis
   });
   
   try {
+    // 先显示提示信息（只显示一次）
+    console.log(chalk.cyan(`\n可用的斜線命令${inputHint}：`));
+    
     // 创建独立的 inquirer 实例，避免影响主 readline
     const answer = await inquirer.prompt(
       [
         {
           type: 'list',
           name: 'command',
-          message: `可用的斜線命令${inputHint}：`,
+          message: '', // 空消息，避免重复显示
+          prefix: '', // 移除前缀（问号）
           choices: choices,
           pageSize: 15,
         },
