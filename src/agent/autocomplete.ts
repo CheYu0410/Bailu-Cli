@@ -62,15 +62,23 @@ export async function showSlashCommandPicker(initialInput: string = "/"): Promis
   });
   
   try {
-    const answer = await inquirer.prompt([
+    // 创建独立的 inquirer 实例，避免影响主 readline
+    const answer = await inquirer.prompt(
+      [
+        {
+          type: 'list',
+          name: 'command',
+          message: `可用的斜線命令${inputHint}：`,
+          choices: choices,
+          pageSize: 15,
+        },
+      ],
       {
-        type: 'list',
-        name: 'command',
-        message: `可用的斜線命令${inputHint}：`,
-        choices: choices,
-        pageSize: 15,
-      },
-    ]);
+        // 不要关闭 stdin
+        input: process.stdin,
+        output: process.stdout,
+      }
+    );
     
     return answer.command;
   } catch (error) {

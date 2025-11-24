@@ -70,7 +70,6 @@ export class ChatSession {
   async start(): Promise<void> {
     this.printWelcome();
     
-
     // Ctrl+C 处理：第一次提示，第二次（3秒内）退出
     let lastSigintTime: number | null = null;
     process.on('SIGINT', () => {
@@ -157,9 +156,16 @@ export class ChatSession {
           
           // 注意：line 事件开始时调用了 pause()，现在需要恢复
           // 使用 setImmediate 确保在当前事件循环结束后再恢复
+          const rl = this.rl;
           setImmediate(() => {
-            this.rl.resume();
-            this.rl.prompt();
+            rl.resume();
+            rl.prompt();
+            
+            // 修复：inquirer 可能会 unref stdin，导致进程退出
+            // 强制 ref stdin 确保进程继续运行
+            if (process.stdin.ref) {
+              process.stdin.ref();
+            }
           });
           
           return;
