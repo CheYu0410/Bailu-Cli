@@ -71,10 +71,12 @@ export async function showSlashCommandPicker(initialInput: string = "/"): Promis
         {
           type: 'list',
           name: 'command',
-          message: '', // 空消息，避免重复显示
-          prefix: '', // 移除前缀（问号）
+          message: ' ', // 一个空格，避免显示默认的 "command:"
+          prefix: ' ', // 一个空格代替前缀
+          suffix: '', // 移除后缀
           choices: choices,
           pageSize: 15,
+          loop: false, // 禁用循环，减少重新渲染
         },
       ],
       {
