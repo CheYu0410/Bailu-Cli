@@ -34,7 +34,12 @@ export class ChatSession {
   private sessionStats = {
     messagesCount: 0,
     toolCallsCount: 0,
+    totalTokensUsed: 0, // 总 token 使用量（估算）
+    totalResponseTime: 0, // 总响应时间（毫秒）
+    apiCallsCount: 0, // API 调用次数
+    filesModified: 0, // 修改的文件数
     startTime: new Date(),
+    lastRequestTime: 0, // 上次请求时间（毫秒）
   };
 
   constructor(options: ChatSessionOptions) {
@@ -277,8 +282,22 @@ export class ChatSession {
       });
       this.sessionStats.messagesCount++;
 
+      // 记录开始时间
+      const startTime = Date.now();
+
       // 使用 orchestrator 處理（支持工具調用）
       const result = await this.orchestrator.run(this.messages, true);
+
+      // 更新统计信息
+      const responseTime = Date.now() - startTime;
+      this.sessionStats.lastRequestTime = responseTime;
+      this.sessionStats.totalResponseTime += responseTime;
+      this.sessionStats.apiCallsCount++;
+      
+      // 估算 token 使用（每个字符约 0.25 token）
+      const inputTokens = Math.ceil(trimmed.length * 0.25);
+      const outputTokens = result.success ? Math.ceil(result.finalResponse.length * 0.25) : 0;
+      this.sessionStats.totalTokensUsed += inputTokens + outputTokens;
 
       if (result.success) {
         // 將 assistant 回應加入歷史
@@ -324,8 +343,22 @@ export class ChatSession {
     });
     this.sessionStats.messagesCount++;
 
+    // 记录开始时间
+    const startTime = Date.now();
+
     // 使用 orchestrator 處理（支持工具調用）
     const result = await this.orchestrator.run(this.messages, true);
+
+    // 更新统计信息
+    const responseTime = Date.now() - startTime;
+    this.sessionStats.lastRequestTime = responseTime;
+    this.sessionStats.totalResponseTime += responseTime;
+    this.sessionStats.apiCallsCount++;
+    
+    // 估算 token 使用（每个字符约 0.25 token）
+    const inputTokens = Math.ceil(trimmed.length * 0.25);
+    const outputTokens = result.success ? Math.ceil(result.finalResponse.length * 0.25) : 0;
+    this.sessionStats.totalTokensUsed += inputTokens + outputTokens;
 
     if (result.success) {
       // 將 assistant 回應加入歷史

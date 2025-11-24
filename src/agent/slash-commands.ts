@@ -19,7 +19,12 @@ export interface SlashCommandContext {
   sessionStats: {
     messagesCount: number;
     toolCallsCount: number;
+    totalTokensUsed: number;
+    totalResponseTime: number;
+    apiCallsCount: number;
+    filesModified: number;
     startTime: Date;
+    lastRequestTime: number;
   };
   // 文件管理功能
   fileManager?: {
@@ -105,6 +110,9 @@ export async function handleSlashCommand(
 
     case "/files":
       return handleListFiles(context);
+
+    case "/stats":
+      return handleStats(context);
 
     case "/exit":
     case "/quit":
@@ -716,6 +724,61 @@ function handleListFiles(context: SlashCommandContext): SlashCommandResult {
     response += chalk.gray(`  ${index + 1}. ${file}\n`);
   });
   response += chalk.gray(`\n使用 `) + chalk.green("/drop <文件路径>") + chalk.gray(" 移除文件");
+
+  return {
+    handled: true,
+    response,
+  };
+}
+
+/**
+ * /stats - 显示会话性能统计
+ */
+function handleStats(context: SlashCommandContext): SlashCommandResult {
+  const stats = context.sessionStats;
+  
+  if (!stats) {
+    return {
+      handled: true,
+      response: chalk.yellow("无法获取会话统计信息"),
+    };
+  }
+
+  // 计算会话时长
+  const sessionDuration = Date.now() - stats.startTime.getTime();
+  const durationStr = formatDuration(sessionDuration);
+  
+  // 计算平均响应时间
+  const avgResponseTime = stats.apiCallsCount > 0 
+    ? (stats.totalResponseTime / stats.apiCallsCount / 1000).toFixed(2) 
+    : "0";
+  
+  // 估算成本（假设每 1000 tokens = $0.002）
+  const estimatedCost = (stats.totalTokensUsed / 1000 * 0.002).toFixed(4);
+
+  let response = chalk.cyan("\n📊 会话统计信息\n\n");
+  
+  response += chalk.bold("⏱️  时间统计：\n");
+  response += chalk.gray(`  • 会话时长: ${durationStr}\n`);
+  response += chalk.gray(`  • API 调用次数: ${stats.apiCallsCount}\n`);
+  response += chalk.gray(`  • 平均响应时间: ${avgResponseTime}s\n`);
+  if (stats.lastRequestTime > 0) {
+    response += chalk.gray(`  • 上次请求耗时: ${(stats.lastRequestTime / 1000).toFixed(2)}s\n`);
+  }
+  
+  response += chalk.bold("\n💬 对话统计：\n");
+  response += chalk.gray(`  • 消息数量: ${stats.messagesCount}\n`);
+  response += chalk.gray(`  • 工具调用次数: ${stats.toolCallsCount}\n`);
+  
+  response += chalk.bold("\n🎯 Token 使用：\n");
+  response += chalk.gray(`  • 总 Token 使用: ${stats.totalTokensUsed.toLocaleString()}\n`);
+  response += chalk.gray(`  • 估算成本: $${estimatedCost}\n`);
+  response += chalk.gray(`  • 平均每次请求: ${stats.apiCallsCount > 0 ? Math.round(stats.totalTokensUsed / stats.apiCallsCount).toLocaleString() : 0} tokens\n`);
+  
+  response += chalk.bold("\n📝 内容统计：\n");
+  response += chalk.gray(`  • 活跃文件: ${context.fileManager?.getActiveFiles().length || 0}\n`);
+  
+  response += chalk.gray("\n💡 提示: Token 使用量为估算值（基于字符数）\n");
 
   return {
     handled: true,

@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import readline from "readline";
+import { findGitRoot, getProjectRoot } from "./utils/git";
 
 export interface BailuCliConfig {
   apiKey?: string;
@@ -39,18 +40,38 @@ export function getHistoryPath(): string {
 }
 
 /**
+ * 导出 Git 工具函数供其他模块使用
+ */
+export { findGitRoot, getProjectRoot, isInGitRepo } from "./utils/git";
+
+/**
  * 获取项目级配置文件路径
- * 在当前工作目录或向上查找
+ * 优先在 Git 根目录查找，否则在当前目录向上查找
  */
 function findProjectConfig(startDir: string = process.cwd()): string | null {
-  let currentDir = startDir;
   const configFilenames = [".bailu.config.json", ".bailurc.json", ".bailurc"];
   
-  while (true) {
+  // 优先检查 Git 根目录
+  const gitRoot = findGitRoot(startDir);
+  if (gitRoot) {
     for (const filename of configFilenames) {
-      const configPath = path.join(currentDir, filename);
+      const configPath = path.join(gitRoot, filename);
       if (fs.existsSync(configPath)) {
         return configPath;
+      }
+    }
+  }
+  
+  // 如果 Git 根目录没有，向上查找
+  let currentDir = startDir;
+  while (true) {
+    // 跳过 Git 根目录（已经检查过）
+    if (currentDir !== gitRoot) {
+      for (const filename of configFilenames) {
+        const configPath = path.join(currentDir, filename);
+        if (fs.existsSync(configPath)) {
+          return configPath;
+        }
       }
     }
     

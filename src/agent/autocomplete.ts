@@ -28,6 +28,7 @@ export const slashCommands: SlashCommandDef[] = [
   { command: "/add", description: "添加文件到上下文", usage: "/add <文件路径>" },
   { command: "/drop", description: "從上下文移除文件", usage: "/drop <文件路径> | all" },
   { command: "/files", description: "列出當前上下文中的所有文件" },
+  { command: "/stats", description: "查看會話性能統計" },
   { command: "/clear", alias: "/c", description: "清空對話歷史" },
   { command: "/exit", alias: "/q", description: "退出 CLI" },
 ];
