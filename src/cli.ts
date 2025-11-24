@@ -11,7 +11,7 @@ import chalk from "chalk";
 import { BailuAgent } from "./agent/core";
 import { LLMClient } from "./llm/client";
 import { buildAskPrompt, buildFixPrompt } from "./llm/prompts";
-import { ensureApiKeyInteractive } from "./config";
+import { ensureApiKeyInteractive, mergeConfigs } from "./config";
 import { AgentOrchestrator } from "./agent/orchestrator";
 import { globalToolRegistry, builtinTools, ToolExecutionContext } from "./tools";
 import { SessionManager } from "./agent/session";
@@ -40,7 +40,7 @@ async function handleAsk(question: string | undefined) {
   console.log("\n"); // 結束後換行
 }
 
-async function handleFix(instruction: string | undefined) {
+async function handleFix(instruction: string | undefined, options: any = {}) {
   if (!instruction) {
     console.log(chalk.yellow("請描述你想修改的內容，例如："));
     console.log(chalk.cyan("  bailu fix \"把 README 的安裝步驟改成 pnpm\""));
@@ -50,33 +50,39 @@ async function handleFix(instruction: string | undefined) {
 
   const apiKey = await ensureApiKeyInteractive();
   
+  // 合并所有配置源（CLI 参数 > 项目配置 > 用户配置 > 环境变量 > 默认值）
+  const config = mergeConfigs({
+    safetyMode: options.mode,
+    maxIterations: options.maxIterations,
+    verbose: options.verbose,
+  });
+  
   // 註冊所有內建工具
   globalToolRegistry.registerAll(builtinTools);
 
   // 構建執行上下文
-  const safetyMode = (process.env.BAILU_MODE as any) || "review";
   const executionContext: ToolExecutionContext = {
     workspaceRoot: process.cwd(),
-    safetyMode,
-    verbose: true,
+    safetyMode: config.safetyMode!,
+    verbose: config.verbose!,
   };
 
   // 創建 Agent 和 Orchestrator
   const agent = new BailuAgent();
   const ctx = agent.getWorkspaceContext();
-  const llm = new LLMClient({ apiKey });
+  const llm = new LLMClient({ apiKey, baseUrl: config.baseUrl, model: config.model });
   const orchestrator = new AgentOrchestrator({
     llmClient: llm,
     toolRegistry: globalToolRegistry,
     executionContext,
-    maxIterations: 10,
-    verbose: true,
+    maxIterations: config.maxIterations!,
+    verbose: config.verbose!,
   });
 
   // 構建初始消息
   const messages = buildFixPrompt(ctx, instruction);
 
-  console.log(chalk.green(`\n[開始執行任務] 模式: ${safetyMode}`));
+  console.log(chalk.green(`\n[開始執行任務] 模式: ${config.safetyMode}`));
   console.log(chalk.gray(`工作目錄: ${process.cwd()}`));
   console.log(chalk.gray(`可用工具: ${globalToolRegistry.getAllNames().join(", ")}\n`));
 
@@ -106,19 +112,23 @@ async function handlePlan(description: string | undefined) {
 async function handleChat() {
   const apiKey = await ensureApiKeyInteractive();
   
+  // 合并所有配置源（CLI 参数 > 项目配置 > 用户配置 > 环境变量 > 默认值）
+  const config = mergeConfigs({
+    verbose: false, // chat 模式默認不顯示詳細日誌
+  });
+  
   // 註冊工具
   globalToolRegistry.registerAll(builtinTools);
 
-  const safetyMode = (process.env.BAILU_MODE as any) || "review";
   const executionContext: ToolExecutionContext = {
     workspaceRoot: process.cwd(),
-    safetyMode,
-    verbose: false, // chat 模式默認不顯示詳細日誌
+    safetyMode: config.safetyMode!,
+    verbose: config.verbose!,
   };
 
   const agent = new BailuAgent();
   const ctx = agent.getWorkspaceContext();
-  const llm = new LLMClient({ apiKey });
+  const llm = new LLMClient({ apiKey, baseUrl: config.baseUrl, model: config.model });
 
   const chatSession = new ChatSession({
     llmClient: llm,
