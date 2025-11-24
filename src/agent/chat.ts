@@ -29,6 +29,8 @@ export class ChatSession {
   private workspaceContext: WorkspaceContext;
   private historyManager: HistoryManager;
   private activeFiles: Set<string> = new Set(); // 当前上下文中的文件
+  private multiLineBuffer: string[] = []; // 多行输入缓冲区
+  private isMultiLineMode: boolean = false; // 是否在多行模式
   private sessionStats = {
     messagesCount: 0,
     toolCallsCount: 0,
@@ -91,9 +93,46 @@ export class ChatSession {
     this.rl.prompt();
 
     this.rl.on("line", async (input) => {
+      // 多行输入模式处理
+      if (this.isMultiLineMode) {
+        const trimmed = input.trim();
+        
+        // 空行表示结束多行输入并提交
+        if (!trimmed) {
+          const fullInput = this.multiLineBuffer.join('\n');
+          this.isMultiLineMode = false;
+          this.multiLineBuffer = [];
+          this.rl.setPrompt(chalk.cyan("\n你: "));
+          
+          if (fullInput.trim()) {
+            // 处理多行输入（继续正常的处理流程）
+            await this.processMultiLineInput(fullInput);
+          }
+          this.rl.prompt();
+          return;
+        }
+        
+        // 添加到缓冲区并继续
+        this.multiLineBuffer.push(input);
+        this.rl.setPrompt(chalk.gray("... "));
+        this.rl.prompt();
+        return;
+      }
+      
+      // 单行模式
       const trimmed = input.trim();
 
       if (!trimmed) {
+        this.rl.prompt();
+        return;
+      }
+      
+      // 检查行尾是否有续行符 \
+      if (input.endsWith('\\')) {
+        // 进入多行模式
+        this.isMultiLineMode = true;
+        this.multiLineBuffer = [input.slice(0, -1)]; // 移除末尾的 \
+        this.rl.setPrompt(chalk.gray("... "));
         this.rl.prompt();
         return;
       }
@@ -262,6 +301,46 @@ export class ChatSession {
       console.log(chalk.gray("\n再見！"));
       process.exit(0);
     });
+  }
+
+  /**
+   * 处理多行输入
+   */
+  private async processMultiLineInput(input: string): Promise<void> {
+    const trimmed = input.trim();
+    
+    // 保存到历史记录
+    this.historyManager.add(trimmed);
+    
+    // 暫停 readline 以避免在處理期間顯示多餘的 prompt
+    this.rl.pause();
+    
+    // 不支持多行斜线命令，直接作为普通输入处理
+    
+    // 將用戶消息加入歷史
+    this.messages.push({
+      role: "user",
+      content: trimmed,
+    });
+    this.sessionStats.messagesCount++;
+
+    // 使用 orchestrator 處理（支持工具調用）
+    const result = await this.orchestrator.run(this.messages, true);
+
+    if (result.success) {
+      // 將 assistant 回應加入歷史
+      this.messages.push({
+        role: "assistant",
+        content: result.finalResponse,
+      });
+      this.sessionStats.messagesCount++;
+      this.sessionStats.toolCallsCount += result.toolCallsExecuted;
+    } else {
+      console.log(chalk.red(`\n錯誤: ${result.error}`));
+    }
+
+    // AI 回應完成後恢復 readline 並顯示提示符
+    this.rl.resume();
   }
 
   /**
@@ -713,7 +792,8 @@ export class ChatSession {
     console.log(chalk.cyan("  • 直接輸入問題或需求，AI 會自動處理"));
     console.log(chalk.cyan("  • 輸入 ") + chalk.green("/") + chalk.cyan(" 顯示所有斜線命令（可用上下鍵選擇）"));
     console.log(chalk.cyan("  • 輸入 ") + chalk.green("/help") + chalk.cyan(" 查看命令說明"));
-    console.log(chalk.cyan("  • 輸入 ") + chalk.green("/status") + chalk.cyan(" 查看當前狀態"));
+    console.log(chalk.cyan("  • 輸入 ") + chalk.green("/add <文件>") + chalk.cyan(" 添加文件到上下文"));
+    console.log(chalk.cyan("  • 行尾加 ") + chalk.green("\\") + chalk.cyan(" 可以續行，空行結束多行輸入"));
     console.log(chalk.cyan("  • 輸入 ") + chalk.green("exit") + chalk.cyan(" 退出"));
 
     const currentModel = this.llmClient["model"];
