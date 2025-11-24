@@ -5,6 +5,62 @@ export interface ChatMessage {
   content: string;
 }
 
+/**
+ * 带重试的 fetch 封装
+ * @param fn 要执行的异步函数
+ * @param maxRetries 最大重试次数
+ * @param retryDelay 初始重试延迟（毫秒）
+ */
+async function fetchWithRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  retryDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | undefined;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // 最后一次尝试失败，不再重试
+      if (attempt === maxRetries) {
+        break;
+      }
+      
+      // 检查是否是可重试的错误
+      const errorMessage = lastError.message.toLowerCase();
+      const isRetryable =
+        errorMessage.includes("network") ||
+        errorMessage.includes("timeout") ||
+        errorMessage.includes("econnreset") ||
+        errorMessage.includes("enotfound") ||
+        errorMessage.includes("503") ||
+        errorMessage.includes("502") ||
+        errorMessage.includes("504") ||
+        errorMessage.includes("rate limit");
+      
+      if (!isRetryable) {
+        // 不可重试的错误（如 401, 403, 400），直接抛出
+        throw lastError;
+      }
+      
+      // 指数退避：每次重试延迟加倍
+      const delay = retryDelay * Math.pow(2, attempt);
+      console.log(`\n⚠️  请求失败 (尝试 ${attempt + 1}/${maxRetries + 1})，${delay / 1000}秒后重试...\n`);
+      console.log(`错误: ${lastError.message}\n`);
+      
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  
+  // 所有重试都失败了
+  throw new Error(
+    `API 请求在 ${maxRetries + 1} 次尝试后仍然失败\n最后错误: ${lastError?.message || "未知错误"}`
+  );
+}
+
 export interface LLMClientOptions {
   apiKey?: string;
   model?: string;
@@ -204,37 +260,41 @@ export class LLMClient {
       }
     }
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(body),
+    // 使用重试机制发送请求
+    const response = await fetchWithRetry(async () => {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+      
+      // 检查响应状态
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        let errorMsg = `${res.status} ${res.statusText}`;
+        
+        try {
+          const parsed = JSON.parse(text) as { error?: { message?: string; type?: string } };
+          if (parsed.error?.message) {
+            errorMsg = parsed.error.message;
+            if (parsed.error.type === "invalid_model") {
+              errorMsg += `\n請確認當前模型 ID 是否正確（目前為 "${this.model}"）。`;
+            }
+          }
+        } catch {
+          if (text) errorMsg += `\n${text}`;
+        }
+        
+        throw new Error(errorMsg);
+      }
+      
+      return res;
     });
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-
-      let extra = "";
-      try {
-        const parsed = JSON.parse(text) as { error?: { message?: string; type?: string } };
-        if (parsed.error?.message) {
-          extra = parsed.error.message;
-          if (parsed.error.type === "invalid_model") {
-            extra += `\n請確認當前模型 ID 是否正確（目前為 "${this.model}"）。`;
-            extra += `\n你可以設置環境變量 BAILU_MODEL 或在本機配置中修改模型，並可通過 "bailu models" 查看可用模型。`;
-          }
-        }
-      } catch {
-        // ignore JSON parse error
-      }
-
-      const baseMsg = `白鹿 API 請求失敗：${response.status} ${response.statusText}`;
-      const detail = extra || text;
-      throw new Error(detail ? `${baseMsg}\n${detail}` : baseMsg);
-    }
-
+    // 解析响应
     let data: ChatCompletionResponse;
     try {
       data = (await response.json()) as ChatCompletionResponse;
