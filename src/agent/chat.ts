@@ -161,11 +161,15 @@ export class ChatSession {
             rl.resume();
             rl.prompt();
             
-            // 修复：inquirer 可能会 unref stdin，导致进程退出
-            // 强制 ref stdin 确保进程继续运行
+            // 修复 inquirer 导致的进程退出问题
+            // 1. 强制 ref stdin 确保进程继续运行
             if (process.stdin.ref) {
               process.stdin.ref();
             }
+            
+            // 2. 创建一个长时间的定时器保持事件循环活跃
+            // 这是一个 workaround，因为 inquirer 会 unref 某些资源
+            setTimeout(() => {}, 100000000);
           });
           
           return;
