@@ -95,28 +95,28 @@ export class ChatSession {
     this.rl.on("line", async (input) => {
       // 多行输入模式处理
       if (this.isMultiLineMode) {
-        const trimmed = input.trim();
-        
-        // 空行表示结束多行输入并提交
-        if (!trimmed) {
+        // 检查当前行是否以 \ 结尾（续行）
+        if (input.endsWith('\\')) {
+          // 继续多行模式
+          this.multiLineBuffer.push(input.slice(0, -1)); // 移除末尾的 \
+          this.rl.setPrompt(chalk.gray("... "));
+          this.rl.prompt();
+          return;
+        } else {
+          // 没有 \，这是最后一行，结束并提交
+          this.multiLineBuffer.push(input);
           const fullInput = this.multiLineBuffer.join('\n');
           this.isMultiLineMode = false;
           this.multiLineBuffer = [];
           this.rl.setPrompt(chalk.cyan("\n你: "));
           
           if (fullInput.trim()) {
-            // 处理多行输入（继续正常的处理流程）
+            // 处理多行输入
             await this.processMultiLineInput(fullInput);
           }
           this.rl.prompt();
           return;
         }
-        
-        // 添加到缓冲区并继续
-        this.multiLineBuffer.push(input);
-        this.rl.setPrompt(chalk.gray("... "));
-        this.rl.prompt();
-        return;
       }
       
       // 单行模式
@@ -793,7 +793,7 @@ export class ChatSession {
     console.log(chalk.cyan("  • 輸入 ") + chalk.green("/") + chalk.cyan(" 顯示所有斜線命令（可用上下鍵選擇）"));
     console.log(chalk.cyan("  • 輸入 ") + chalk.green("/help") + chalk.cyan(" 查看命令說明"));
     console.log(chalk.cyan("  • 輸入 ") + chalk.green("/add <文件>") + chalk.cyan(" 添加文件到上下文"));
-    console.log(chalk.cyan("  • 多行輸入：在行尾加 ") + chalk.green("\\") + chalk.cyan(" 然後按 Enter，輸入空行結束"));
+    console.log(chalk.cyan("  • 多行輸入：每行行尾加 ") + chalk.green("\\") + chalk.cyan(" 繼續，不加則提交"));
     console.log(chalk.cyan("  • 輸入 ") + chalk.green("exit") + chalk.cyan(" 退出"));
 
     const currentModel = this.llmClient["model"];
