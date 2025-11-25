@@ -72,6 +72,22 @@ export async function showSlashCommandPicker(initialInput: string = "/"): Promis
     // 在 inquirer 之前先清除一行，避免重复
     process.stdout.write('\r\x1b[K');
     
+    // 暂停并清空 stdin，防止输入缓冲干扰
+    if (process.stdin.pause) {
+      process.stdin.pause();
+    }
+    
+    // 清空输入缓冲区
+    if (process.stdin.isTTY) {
+      // 在 Windows 上确保 stdin 处于正确状态
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    // 恢复 stdin
+    if (process.stdin.resume) {
+      process.stdin.resume();
+    }
+    
     // 创建独立的 inquirer 实例，避免影响主 readline
     const answer = await inquirer.prompt(
       [
@@ -91,6 +107,9 @@ export async function showSlashCommandPicker(initialInput: string = "/"): Promis
         output: process.stdout,
       }
     );
+    
+    // inquirer 完成后清理
+    await new Promise(resolve => setTimeout(resolve, 10));
     
     return answer.command;
   } catch (error) {

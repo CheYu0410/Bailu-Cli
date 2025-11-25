@@ -217,6 +217,9 @@ export class ChatSession {
           }
           
           // 修复 inquirer 导致的问题
+          // 给 inquirer 一点时间完全清理
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           // 1. 退出 raw mode
           if (process.stdin.isTTY && process.stdin.setRawMode) {
             try {
@@ -234,13 +237,25 @@ export class ChatSession {
           // 3. 创建长时间定时器保持事件循环活跃
           setTimeout(() => {}, 100000000);
           
-          // 4. 恢复 readline
+          // 4. 清空任何残留的输入
+          if (process.stdin.isTTY && (process.stdin as any).read) {
+            try {
+              (process.stdin as any).read();
+            } catch (e) {
+              // 忽略错误
+            }
+          }
+          
+          // 5. 恢复 readline
           this.rl.resume();
           
-          // 5. 关键：恢复 stdin（inquirer 会 pause stdin）
+          // 6. 关键：恢复 stdin（inquirer 会 pause stdin）
           process.stdin.resume();
           
-          // 6. 显示提示符
+          // 7. 再次短暂延迟确保一切就绪
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
+          // 8. 显示提示符
           this.rl.prompt();
           
           return;
