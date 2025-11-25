@@ -73,6 +73,8 @@ export class ChatSession {
       input: process.stdin,
       output: process.stdout,
       prompt: chalk.cyan("\n你: "),
+      terminal: true, // 确保作为终端模式运行
+      crlfDelay: Infinity, // 处理 Windows 的 CRLF，避免重复行
     });
   }
 
