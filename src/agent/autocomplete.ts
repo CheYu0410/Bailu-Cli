@@ -69,13 +69,16 @@ export async function showSlashCommandPicker(initialInput: string = "/"): Promis
   });
   
   try {
+    // 在 inquirer 之前先清除一行，避免重复
+    process.stdout.write('\r\x1b[K');
+    
     // 创建独立的 inquirer 实例，避免影响主 readline
     const answer = await inquirer.prompt(
       [
         {
           type: 'list',
           name: 'command',
-          message: chalk.cyan(`可用的斜線命令${inputHint}`), // 让 inquirer 显示提示
+          message: chalk.cyan(`斜線命令${inputHint}`), // 简化提示文字
           prefix: '', // 移除前缀
           choices: choices,
           pageSize: 15,
