@@ -105,6 +105,12 @@ export class ChatSession {
     this.rl.prompt();
 
     this.rl.on("line", async (input) => {
+      // Windows 终端会重复显示输入，主动清除重复行
+      if (process.platform === 'win32') {
+        // 向上移动一行并清除（清除重复的输入）
+        process.stdout.write('\x1b[1A\x1b[2K\r');
+      }
+      
       // 多行输入模式处理
       if (this.isMultiLineMode) {
         // 检查当前行是否以 \ 结尾（续行）
