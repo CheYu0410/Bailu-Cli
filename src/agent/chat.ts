@@ -523,17 +523,21 @@ ${recentFiles}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🛠 **工具协议 (Tool Protocol)**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-你必须使用 XML 格式调用工具。**严禁**使用 Markdown 代码块。
+你必须严格遵守以下 XML 格式。
+⚠️ **工具名称必须完全匹配，不要创造新工具！**
 
-1. **ls** (列出目录): <action><invoke tool="list_directory"><param name="path">.</param></invoke></action>
-2. **read** (读取文件): <action><invoke tool="read_file"><param name="path">src/main.py</param></invoke></action>
-3. **write** (写入文件): <action><invoke tool="write_file"><param name="path">src/main.py</param><param name="content">...完整内容...</param></invoke></action>
-4. **exec** (执行命令): <action><invoke tool="exec"><param name="command">npm test</param></invoke></action>
+1. **ls**: <action><invoke tool="list_directory"><param name="path">.</param></invoke></action>
+2. **read**: <action><invoke tool="read_file"><param name="path">src/main.py</param></invoke></action>
+3. **write**: <action><invoke tool="write_file"><param name="path">src/main.py</param><param name="content">...</param></invoke></action>
+4. **exec/run_command**: 
+   <action><invoke tool="exec"><param name="command">node hello.js</param></invoke></action>
+   (支持执行 Shell 命令)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🧠 **思考链 (思维核心)**
+🧠 **思考链 (Mandatory Thought)**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-在执行 <action> 前，必须输出 <thought> 标签。
+🔴 **STOP!** 在输出 <action> 之前，你 **必须** 先输出 <thought> 标签。
+如果你直接输出 <action>，系统将拦截并报错。
 你必须在思考中完成以下检查：
 1. **记忆回溯**：用户问的问题，我之前的工具输出里有没有？如果有，直接回答，不要重复调用工具。
 2. **依赖分析**：修改这个文件会影响其他文件吗？(例如改 HTML 需不需要改 CSS?)
@@ -586,7 +590,8 @@ ${recentFiles}
 <thought>写入完成。现在回读检查语法。</thought>
 <action><invoke tool="read_file">...</invoke></action>
 
-请等待用户输入。使用**简体中文**回复。
+请等待用户输入。Language: Follow the user's language (Traditional or Simplified Chinese). Default to Simplified if unsure.
+**CRITICAL**: You MUST start every response with a <thought> block. Do not start with <action>.
 `;
   }
 
