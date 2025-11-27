@@ -12,7 +12,58 @@ export function getDefaultPolicy(): SafetyPolicy {
   const mode: ExecutionMode = modeEnv ?? "review";
   return {
     mode,
-    blockedCommands: ["rm", "rm -rf", "mkfs", "shutdown", "reboot"],
+    // Comprehensive list of dangerous commands
+    blockedCommands: [
+      // File system destructive operations
+      "rm",
+      "rm -rf",
+      "rmdir",
+      "del",
+      "format",
+      "mkfs",
+      "dd",
+      
+      // System operations
+      "shutdown",
+      "reboot",
+      "poweroff",
+      "halt",
+      "init",
+      
+      // Package managers (prevent unauthorized installations)
+      "apt-get",
+      "yum",
+      "dnf",
+      "pacman",
+      "brew",
+      "choco",
+      
+      // User/permission changes
+      "chmod",
+      "chown",
+      "chgrp",
+      "passwd",
+      "sudo",
+      "su",
+      
+      // Network operations (potential data exfiltration)
+      "curl",
+      "wget",
+      "nc",
+      "netcat",
+      "telnet",
+      
+      // Disk operations
+      "fdisk",
+      "parted",
+      "mount",
+      "umount",
+      
+      // Process manipulation
+      "kill",
+      "killall",
+      "pkill",
+    ],
     maxCommandDurationMs: 5 * 60 * 1000,
   };
 }
