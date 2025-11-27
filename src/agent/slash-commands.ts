@@ -636,15 +636,14 @@ async function handleReview(args: string[], context: SlashCommandContext): Promi
   const ext = path.extname(filePath).toLowerCase();
   const codeExtensions = [
     '.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.go', '.rs',
-    '.cpp', '.c', '.cs', '.rb', '.php', '.swift', '.kt', '.vue'
+    '.cpp', '.c', '.cs', '.rb', '.php', '.swift', '.kt', '.vue',
+    '.html', '.css', '.scss', '.json', '.yaml', '.yml', '.md'
   ];
   
+  // 显示警告但继续执行（不要 return）
   if (!codeExtensions.includes(ext)) {
-    return {
-      handled: true,
-      response: chalk.yellow(`警告: ${ext} 可能不是代码文件\n`) +
-        chalk.gray("仍然继续审查...\n"),
-    };
+    console.log(chalk.yellow(`警告: ${ext} 可能不是典型的代码文件`));
+    console.log(chalk.gray("仍然继续审查...\n"));
   }
 
   try {
