@@ -3,6 +3,7 @@
  */
 
 import chalk from "chalk";
+import path from "path";
 import { ToolRegistry } from "./registry";
 import { ToolCall, ToolResult, ToolExecutionContext, ToolDefinition, ToolParameter } from "./types";
 import { ErrorRecoveryManager, RetryAttempt } from "./recovery";
@@ -10,12 +11,53 @@ import readline from "readline";
 
 export class ToolExecutor {
   private recovery: ErrorRecoveryManager;
+  private workspaceRoot: string;
 
   constructor(
     private registry: ToolRegistry,
     private context: ToolExecutionContext
   ) {
     this.recovery = new ErrorRecoveryManager();
+    // Get workspace root for path validation
+    this.workspaceRoot = this.context.workspaceRoot || process.cwd();
+  }
+
+  /**
+   * Validate and sanitize file path to prevent path traversal attacks
+   */
+  private validateFilePath(filePath: string): { valid: boolean; sanitized?: string; error?: string } {
+    if (!filePath || typeof filePath !== 'string') {
+      return { valid: false, error: '文件路径无效' };
+    }
+
+    try {
+      // Resolve to absolute path
+      const absolutePath = path.resolve(this.workspaceRoot, filePath);
+      
+      // Ensure the resolved path is within workspace
+      if (!absolutePath.startsWith(this.workspaceRoot)) {
+        return { 
+          valid: false, 
+          error: `路径遍历攻击检测：路径 "${filePath}" 在工作区外` 
+        };
+      }
+
+      // Additional check: reject paths with suspicious patterns
+      const suspicious = ['../', '..\\\\', '%2e%2e'];
+      if (suspicious.some(pattern => filePath.includes(pattern))) {
+        return { 
+          valid: false, 
+          error: `路径包含可疑字符："${filePath}"` 
+        };
+      }
+
+      return { valid: true, sanitized: absolutePath };
+    } catch (error) {
+      return { 
+        valid: false, 
+        error: `路径验证失败: ${error instanceof Error ? error.message : String(error)}` 
+      };
+    }
   }
 
   /**
@@ -70,11 +112,21 @@ export class ToolExecutor {
 
     // 實際執行工具
     try {
-      // 如果是写入操作，先创建备份
+      // 如果是写入操作，先验证路径并创建备份
       if (toolCall.tool === 'write_file' || toolCall.tool === 'apply_diff') {
         const filePath = toolCall.params.path || toolCall.params.file;
-        if (filePath) {
-          await this.recovery.createBackup(filePath, toolCall.tool);
+        if (filePath && typeof filePath === 'string') {
+          // Validate file path to prevent path traversal
+          const validation = this.validateFilePath(filePath);
+          if (!validation.valid) {
+            return {
+              success: false,
+              error: `🔒 安全检查失败: ${validation.error}`,
+            };
+          }
+          
+          // Use sanitized path for backup
+          await this.recovery.createBackup(validation.sanitized!, toolCall.tool);
         }
       }
 
@@ -95,8 +147,19 @@ export class ToolExecutor {
 
       return result;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      const err = error instanceof Error ? error : new Error(String(error));
+      // Improved error handling - preserve stack trace
+      let err: Error;
+      let errorMsg: string;
+      
+      if (error instanceof Error) {
+        err = error;
+        errorMsg = error.message;
+      } else {
+        errorMsg = String(error);
+        err = new Error(errorMsg);
+        // Preserve original error as property
+        (err as any).originalError = error;
+      }
 
       console.log(chalk.red(`\n✗ 工具執行失敗: ${errorMsg}`));
 
@@ -112,23 +175,29 @@ export class ToolExecutor {
       // 如果是写入操作失败，询问是否回滚
       if (toolCall.tool === 'write_file' || toolCall.tool === 'apply_diff') {
         const filePath = toolCall.params.path || toolCall.params.file;
-        if (filePath) {
-          const backupHistory = this.recovery.getBackupHistory(filePath);
-          if (backupHistory.length > 0) {
-            console.log(chalk.yellow(`\n⚠️  检测到文件有备份，可以回滚`));
-            console.log(chalk.gray(`   文件: ${filePath}`));
-            console.log(chalk.gray(`   备份数: ${backupHistory.length}`));
+        if (filePath && typeof filePath === 'string') {
+          // Validate path before rollback
+          const validation = this.validateFilePath(filePath);
+          if (!validation.valid) {
+            console.log(chalk.yellow(`⚠️  无法回滚: ${validation.error}`));
+          } else {
+            const backupHistory = this.recovery.getBackupHistory(validation.sanitized!);
+            if (backupHistory.length > 0) {
+              console.log(chalk.yellow(`\n⚠️  检测到文件有备份，可以回滚`));
+              console.log(chalk.gray(`   文件: ${filePath}`));
+              console.log(chalk.gray(`   备份数: ${backupHistory.length}`));
 
-            // 在 review 模式下询问用户是否回滚
-            if (this.context.safetyMode === "review") {
-              const shouldRollback = await this.askForRollback(filePath);
-              if (shouldRollback) {
-                const rolled = await this.recovery.rollbackFile(filePath);
-                if (rolled) {
-                  return {
-                    success: false,
-                    error: `工具執行失敗，已回滾: ${errorMsg}`,
-                  };
+              // 在 review 模式下询问用户是否回滚
+              if (this.context.safetyMode === "review") {
+                const shouldRollback = await this.askForRollback(validation.sanitized!);
+                if (shouldRollback) {
+                  const rolled = await this.recovery.rollbackFile(validation.sanitized!);
+                  if (rolled) {
+                    return {
+                      success: false,
+                      error: `工具執行失敗，已回滾: ${errorMsg}`,
+                    };
+                  }
                 }
               }
             }
@@ -151,16 +220,18 @@ export class ToolExecutor {
 
   /**
    * 批量執行工具調用
+   * @param toolCalls - 要执行的工具调用列表
+   * @param continueOnError - 出错时是否继续执行（默认：false）
    */
-  async executeAll(toolCalls: ToolCall[]): Promise<ToolResult[]> {
+  async executeAll(toolCalls: ToolCall[], continueOnError = false): Promise<ToolResult[]> {
     const results: ToolResult[] = [];
 
     for (const toolCall of toolCalls) {
       const result = await this.execute(toolCall);
       results.push(result);
 
-      // 如果某個工具失敗且不是 dry-run 模式，可以選擇中斷
-      if (!result.success && this.context.safetyMode !== "dry-run") {
+      // 如果某個工具失敗且不是 dry-run 模式，根据 continueOnError 决定是否中断
+      if (!result.success && this.context.safetyMode !== "dry-run" && !continueOnError) {
         console.log(chalk.red(`工具 "${toolCall.tool}" 執行失敗，停止後續執行`));
         break;
       }
