@@ -22,7 +22,23 @@ export interface ChatSessionOptions {
   executionContext: ToolExecutionContext;
 }
 
+export interface SessionStats {
+  messagesCount: number;
+  toolCallsCount: number;
+  totalTokensUsed: number;
+  totalResponseTime: number;
+  apiCallsCount: number;
+  filesModified: number;
+  startTime: Date;
+  lastRequestTime: number;
+}
+
 export class ChatSession {
+  // ANSI escape codes for terminal control
+  private readonly ANSI_MOVE_UP = '\x1b[1A'; // Move cursor up one line
+  private readonly ANSI_CLEAR_LINE = '\x1b[2K'; // Clear entire line
+  private readonly ANSI_CARRIAGE_RETURN = '\r'; // Move cursor to line start
+  
   private llmClient: LLMClient;
   private orchestrator: AgentOrchestrator;
   private messages: ChatMessage[];
@@ -33,15 +49,16 @@ export class ChatSession {
   private activeFiles: Set<string> = new Set(); // 当前上下文中的文件
   private multiLineBuffer: string[] = []; // 多行输入缓冲区
   private isMultiLineMode: boolean = false; // 是否在多行模式
-  private sessionStats = {
+  private readonly MAX_MULTILINE_LINES = 50; // 多行输入最大行数限制
+  private sessionStats: SessionStats = {
     messagesCount: 0,
     toolCallsCount: 0,
-    totalTokensUsed: 0, // 总 token 使用量（估算）
-    totalResponseTime: 0, // 总响应时间（毫秒）
-    apiCallsCount: 0, // API 调用次数
-    filesModified: 0, // 修改的文件数
+    totalTokensUsed: 0,
+    totalResponseTime: 0,
+    apiCallsCount: 0,
+    filesModified: 0,
     startTime: new Date(),
-    lastRequestTime: 0, // 上次请求时间（毫秒）
+    lastRequestTime: 0,
   };
 
   constructor(options: ChatSessionOptions) {
@@ -106,15 +123,37 @@ export class ChatSession {
 
     this.rl.on("line", async (input) => {
       // Windows 终端会重复显示输入，主动清除并重新显示一次
-      if (process.platform === 'win32' && input) {
+      if (process.platform === 'win32' && input && process.stdout.isTTY) {
         // 向上移动一行并清除（清除重复的输入）
-        process.stdout.write('\x1b[1A\x1b[2K\r');
+        // Only use ANSI codes if terminal supports it
+        process.stdout.write(
+          this.ANSI_MOVE_UP + this.ANSI_CLEAR_LINE + this.ANSI_CARRIAGE_RETURN
+        );
         // 重新显示一次（保留 prompt）
         console.log(chalk.cyan("你: ") + input);
       }
       
       // 多行输入模式处理
       if (this.isMultiLineMode) {
+        // 检查是否超过最大行数限制
+        if (this.multiLineBuffer.length >= this.MAX_MULTILINE_LINES) {
+          console.log(chalk.yellow(`\n⚠️  多行输入已达到最大限制 (${this.MAX_MULTILINE_LINES} 行)`));
+          console.log(chalk.gray("自动提交当前内容...\n"));
+          
+          // 强制结束并提交
+          this.multiLineBuffer.push(input);
+          const fullInput = this.multiLineBuffer.join('\n');
+          this.isMultiLineMode = false;
+          this.multiLineBuffer = [];
+          this.rl.setPrompt(chalk.cyan("\n你: "));
+          
+          if (fullInput.trim()) {
+            await this.processMultiLineInput(fullInput);
+          }
+          this.rl.prompt();
+          return;
+        }
+        
         // 检查当前行是否以 \ 结尾（续行）
         if (input.endsWith('\\')) {
           // 继续多行模式
