@@ -48,6 +48,11 @@ export interface SlashCommandResult {
   shouldExit?: boolean;
   shouldClearHistory?: boolean;
   response?: string;
+  // 添加到对话历史（用于 /review 等需要后续引用的命令）
+  addToHistory?: {
+    userMessage: string;    // 用户的命令
+    assistantMessage: string; // AI 的响应（纯文本，用于对话历史）
+  };
 }
 
 /**
@@ -670,9 +675,30 @@ async function handleReview(args: string[], context: SlashCommandContext): Promi
     // 格式化并返回结果
     const formattedResult = formatReviewResult(result);
     
+    // 构建纯文本版本用于对话历史（去除颜色代码）
+    const plainTextResult = `代码审查报告: ${path.basename(filePath)}
+
+` +
+      `整体评价: ${result.summary}
+` +
+      `质量评分: ${result.overallScore}/100
+
+` +
+      `发现问题:
+` +
+      result.issues.map((issue, idx) => 
+        `${idx + 1}. [${issue.type}] ${issue.category}: ${issue.message}` +
+        (issue.suggestion ? `\n   建议: ${issue.suggestion}` : '')
+      ).join('\n');
+    
     return {
       handled: true,
       response: formattedResult,
+      // 将审查结果添加到对话历史，以便后续引用
+      addToHistory: {
+        userMessage: `/review ${filePath}`,
+        assistantMessage: plainTextResult,
+      },
     };
   } catch (error) {
     return {

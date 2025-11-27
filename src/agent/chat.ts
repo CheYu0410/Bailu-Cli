@@ -335,6 +335,19 @@ export class ChatSession {
             console.log(slashResult.response);
           }
 
+          // 将命令结果添加到对话历史（用于后续引用）
+          if (slashResult.addToHistory) {
+            this.messages.push({
+              role: "user",
+              content: slashResult.addToHistory.userMessage,
+            });
+            this.messages.push({
+              role: "assistant",
+              content: slashResult.addToHistory.assistantMessage,
+            });
+            this.sessionStats.messagesCount += 2;
+          }
+
           if (slashResult.shouldExit) {
             console.log(chalk.gray("再見！"));
             this.rl.close();
