@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
 import YAML from "yaml";
-import { BailuConfig, WorkspaceContext } from "./types";
+import { BailuConfig, WorkspaceContext, GitStatus } from "./types";
+import { getGitSummary } from "../git/integration";
 
 function readAgentDoc(rootPath: string): string | undefined {
   const candidates = ["AGENT.md", "AGENTS.md"];
@@ -58,17 +59,33 @@ function listImportantFiles(rootPath: string, maxFiles = 64): string[] {
   return results;
 }
 
-export function buildWorkspaceContext(rootPath: string): WorkspaceContext {
+function collectGitStatus(rootPath: string): GitStatus | undefined {
+  const summary = getGitSummary(rootPath);
+  if (!summary.insideWorkTree) {
+    return undefined;
+  }
+  
+  return {
+    branch: summary.branch || "unknown",
+    changes: summary.status.map(s => `[${s.statusCode}] ${s.path}`)
+  };
+}
+
+export function buildWorkspaceContext(
+  rootPath: string,
+  recentFiles?: string[]
+): WorkspaceContext {
   const config = readBailuConfig(rootPath);
   const agentDoc = readAgentDoc(rootPath);
   const importantFiles = listImportantFiles(rootPath);
+  const gitStatus = collectGitStatus(rootPath);
 
   return {
     rootPath,
     config,
     agentDoc,
     importantFiles,
+    gitStatus,
+    recentFiles: recentFiles || []
   };
 }
-
-
