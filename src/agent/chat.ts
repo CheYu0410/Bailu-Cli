@@ -394,12 +394,19 @@ export class ChatSession {
       this.sessionStats.totalTokensUsed += inputTokens + outputTokens;
 
       if (result.success) {
-        // 將 assistant 回應加入歷史
-        this.messages.push({
-          role: "assistant",
-          content: result.finalResponse,
-        });
-        this.sessionStats.messagesCount++;
+        // 使用完整的对话历史（包含任务规划、工具调用结果等）
+        if (result.messages && result.messages.length > 0) {
+          // 添加所有中间对话（任务规划、工具结果等）
+          this.messages.push(...result.messages);
+          this.sessionStats.messagesCount += result.messages.length;
+        } else {
+          // 降级方案：只保存最终回应
+          this.messages.push({
+            role: "assistant",
+            content: result.finalResponse,
+          });
+          this.sessionStats.messagesCount++;
+        }
         this.sessionStats.toolCallsCount += result.toolCallsExecuted;
       } else {
         console.log(chalk.red(`\n錯誤: ${result.error}`));

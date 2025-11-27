@@ -53,6 +53,8 @@ export interface OrchestratorResult {
   iterations: number;
   toolCallsExecuted: number;
   error?: string;
+  // 返回完整的对话历史（包含任务规划、工具结果等）
+  messages?: ChatMessage[];
 }
 
 export class AgentOrchestrator {
@@ -345,6 +347,8 @@ export class AgentOrchestrator {
         finalResponse,
         iterations,
         toolCallsExecuted,
+        // 返回完整的对话历史（去除 system message 修改）
+        messages: messages.slice(1), // 跳过第一个 system message（已被修改）
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -354,6 +358,7 @@ export class AgentOrchestrator {
         iterations,
         toolCallsExecuted,
         error: errorMsg,
+        messages: messages.slice(1),
       };
     }
   }
