@@ -580,9 +580,15 @@ async function handleCommit(context: SlashCommandContext): Promise<SlashCommandR
     });
 
     if (result.success) {
+      const successMsg = `✓ 提交成功\n提交信息: ${result.message}`;
       return {
         handled: true,
-        response: chalk.green(`✓ 提交成功\n提交信息: ${result.message}`),
+        response: chalk.green(successMsg),
+        // 添加到历史，让 AI 记住提交了什么
+        addToHistory: {
+          userMessage: '/commit',
+          assistantMessage: `已成功提交代码\n提交信息: ${result.message}\n变更文件: ${changedFiles.join(', ')}`,
+        },
       };
     } else {
       return {
@@ -846,9 +852,29 @@ function handleWorkspace(context: SlashCommandContext): SlashCommandResult {
     }
   }
   
+  // 构建纯文本版本用于对话历史
+  const plainText = `工作区信息：\n` +
+    `根目录: ${workspaceRoot}\n` +
+    `文件总数: ${totalFiles}\n` +
+    `目录总数: ${totalDirs}\n` +
+    `Git 仓库: ${gitSummary.insideWorkTree ? '已初始化' : '未初始化'}\n` +
+    (gitSummary.insideWorkTree ? `分支: ${gitSummary.branch || '未知'}\n` : '') +
+    (gitSummary.insideWorkTree && gitSummary.status.length > 0 
+      ? `变更文件: ${gitSummary.status.length} 个\n` 
+      : '') +
+    `配置文件: ${config ? '已加载' : '未找到'}\n` +
+    (context.fileManager 
+      ? `活跃文件: ${context.fileManager.getActiveFiles().length} 个\n` 
+      : '');
+  
   return {
     handled: true,
     response,
+    // 添加到历史，让 AI 记住工作区状态
+    addToHistory: {
+      userMessage: '/workspace',
+      assistantMessage: plainText,
+    },
   };
 }
 
