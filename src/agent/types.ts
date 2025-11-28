@@ -51,11 +51,16 @@ export interface BailuConfig {
   notes?: string;
 }
 
+export interface GitStatus {
+  branch: string;
+  changes: string[];
+}
+
 export interface WorkspaceContext {
   rootPath: string;
   config: BailuConfig;
   agentDoc?: string;
   importantFiles: string[];
+  gitStatus?: GitStatus;
+  recentFiles?: string[];
 }
-
-
