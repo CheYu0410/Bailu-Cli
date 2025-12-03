@@ -16,7 +16,7 @@ import { HistoryManager } from "../utils/history";
 import { getHistoryPath } from "../config";
 import { ChatSessionManager, ChatSessionData } from "./chat-session-manager";
 import { buildWorkspaceContext } from "./context";
-import { BracketedPasteHandler } from "../utils/bracketed-paste";
+import { PasteDetector } from "../utils/paste-detector";
 
 export interface ChatSessionOptions {
   llmClient: LLMClient;
@@ -49,7 +49,7 @@ export class ChatSession {
   private workspaceContext: WorkspaceContext;
   private historyManager: HistoryManager;
   private sessionManager: ChatSessionManager;
-  private bracketedPaste: BracketedPasteHandler; // Bracketed Paste Mode 处理器
+  private pasteDetector!: PasteDetector; // 粘贴检测器
   private activeFiles: Set<string> = new Set(); // 当前上下文中的文件
   private recentAccessedFiles: string[] = []; // 最近访问的文件（用于上下文记忆）
   private readonly MAX_RECENT_FILES = 20; // 最近文件数量限制
@@ -92,15 +92,28 @@ export class ChatSession {
     // 初始化会话管理器
     this.sessionManager = new ChatSessionManager();
 
-    // 初始化 Bracketed Paste Mode 处理器
-    this.bracketedPaste = new BracketedPasteHandler();
-
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
       prompt: chalk.cyan("\n你: "),
       terminal: true, // 确保作为终端模式运行
       crlfDelay: Infinity, // 处理 Windows 的 CRLF，避免重复行
+    });
+
+    // 初始化粘贴检测器
+    this.pasteDetector = new PasteDetector({
+      delay: 100, // 增加到100ms，确保捕获所有行
+      longDelay: 300, // 增加到300ms，给最后一行更多时间
+      maxLines: 1000, // 限制最大行数，避免内存问题
+      onComplete: async (lines, isPaste) => {
+        if (isPaste) {
+          // 多行粘贴
+          await this.handlePastedInput(lines.join('\n'));
+        } else {
+          // 单行输入
+          await this.handleSingleLine(lines[0]);
+        }
+      },
     });
   }
 
@@ -110,25 +123,15 @@ export class ChatSession {
    */
   async start(): Promise<void> {
     this.printWelcome();
-    
-    // 启用 Bracketed Paste Mode
-    this.bracketedPaste.enable();
 
-    // 确保退出时禁用 Bracketed Paste Mode
-    const cleanup = () => {
-      this.bracketedPaste.disable();
-    };
-    process.on('exit', cleanup);
-    process.on('SIGTERM', cleanup);
-    
     // Ctrl+C 处理：第一次提示，第二次（3秒内）退出
     let lastSigintTime: number | null = null;
     process.on('SIGINT', () => {
       const now = Date.now();
-      
+
       if (lastSigintTime && (now - lastSigintTime) < 3000) {
         // 3秒内第二次 Ctrl+C，退出
-        this.bracketedPaste.disable();
+        this.pasteDetector.destroy();
         console.log(chalk.gray("\n\n再見！"));
         process.exit(0);
       } else {
@@ -141,327 +144,295 @@ export class ChatSession {
 
     this.rl.prompt();
 
-    this.rl.on("line", async (input) => {
-      // Bracketed Paste Mode 检测和处理
-      const pasteResult = this.bracketedPaste.handleInput(input);
-      
-      if (pasteResult.isPaste) {
-        // 如果是粘贴且已完成，处理粘贴内容
-        if (pasteResult.pasteContent) {
-          await this.handlePastedInput(pasteResult.pasteContent);
-        }
-        // 如果是粘贴但未完成，等待后续数据
-        return;
-      }
-
-      // 使用处理后的数据（已移除粘贴标记）
-      input = pasteResult.data;
-
-      // Windows 终端会重复显示输入，主动清除并重新显示一次
-      if (process.platform === 'win32' && input && process.stdout.isTTY) {
-        // 向上移动一行并清除（清除重复的输入）
-        // Only use ANSI codes if terminal supports it
-        process.stdout.write(
-          this.ANSI_MOVE_UP + this.ANSI_CLEAR_LINE + this.ANSI_CARRIAGE_RETURN
-        );
-        // 重新显示一次（保留 prompt）
-        console.log(chalk.cyan("你: ") + input);
-      }
-      
-      // 多行输入模式处理
-      if (this.isMultiLineMode) {
-        // 检查是否超过最大行数限制
-        if (this.multiLineBuffer.length >= this.MAX_MULTILINE_LINES) {
-          console.log(chalk.yellow(`\n⚠️  多行输入已达到最大限制 (${this.MAX_MULTILINE_LINES} 行)`));
-          console.log(chalk.gray("自动提交当前内容...\n"));
-          
-          // 强制结束并提交
-          this.multiLineBuffer.push(input);
-          const fullInput = this.multiLineBuffer.join('\n');
-          this.isMultiLineMode = false;
-          this.multiLineBuffer = [];
-          this.rl.setPrompt(chalk.cyan("\n你: "));
-          
-          if (fullInput.trim()) {
-            await this.processMultiLineInput(fullInput);
-          }
-          this.rl.prompt();
-          return;
-        }
-        
-        // 检查当前行是否以 \ 结尾（续行）
-        if (input.endsWith('\\')) {
-          // 继续多行模式
-          this.multiLineBuffer.push(input.slice(0, -1)); // 移除末尾的 \
-          this.rl.setPrompt(chalk.gray("... "));
-          this.rl.prompt();
-          return;
-        } else {
-          // 没有 \，这是最后一行，结束并提交
-          this.multiLineBuffer.push(input);
-          const fullInput = this.multiLineBuffer.join('\n');
-          this.isMultiLineMode = false;
-          this.multiLineBuffer = [];
-          this.rl.setPrompt(chalk.cyan("\n你: "));
-          
-          if (fullInput.trim()) {
-            // 处理多行输入
-            await this.processMultiLineInput(fullInput);
-          }
-          this.rl.prompt();
-          return;
-        }
-      }
-      
-      // 单行模式
-      const trimmed = input.trim();
-
-      if (!trimmed) {
-        this.rl.prompt();
-        return;
-      }
-      
-      // 检查行尾是否有续行符 \
-      if (input.endsWith('\\')) {
-        // 进入多行模式
-        this.isMultiLineMode = true;
-        this.multiLineBuffer = [input.slice(0, -1)]; // 移除末尾的 \
-        this.rl.setPrompt(chalk.gray("... "));
-        this.rl.prompt();
-        return;
-      }
-
-      // 保存到历史记录
-      this.historyManager.add(trimmed);
-
-      // 暫停 readline 以避免在處理期間顯示多餘的 prompt
-      this.rl.pause();
-
-      // 舊的特殊命令（保持向後兼容）
-      if (trimmed === "exit" || trimmed === "quit") {
-        console.log(chalk.gray("再見！"));
-        this.rl.close();
-        process.exit(0);
-      }
-
-      if (trimmed === "clear") {
-        this.messages = [this.messages[0]]; // 保留 system message
-        this.sessionStats.messagesCount = 0;
-        console.log(chalk.green("✓ 對話歷史已清空"));
-        this.rl.resume();
-        this.rl.prompt();
-        return;
-      }
-
-      // 處理斜線命令
-      if (trimmed.startsWith("/")) {
-        // 如果只輸入了 /，顯示命令選擇器
-        if (trimmed === "/") {
-          const selectedCommand = await showSlashCommandPicker('/');
-          
-          if (selectedCommand) {
-            // 執行選中的命令
-            this.historyManager.add(selectedCommand);
-
-            const result = await handleSlashCommand(selectedCommand, {
-              llmClient: this.llmClient,
-              workspaceContext: this.workspaceContext,
-              messages: this.messages,
-              sessionStats: this.sessionStats,
-              fileManager: {
-                addFile: this.addFile.bind(this),
-                removeFile: this.removeFile.bind(this),
-                clearFiles: this.clearFiles.bind(this),
-                getActiveFiles: this.getActiveFiles.bind(this),
-              },
-              sessionManager: {
-                saveCurrentSession: this.saveCurrentSession.bind(this),
-                loadSession: this.loadSession.bind(this),
-                listSessions: this.listSessions.bind(this),
-                deleteSession: this.deleteSession.bind(this),
-              },
-            });
-
-            if (result.handled) {
-              if (result.response) {
-                console.log(result.response);
-              }
-
-              if (result.shouldExit) {
-                console.log(chalk.gray("再見！"));
-                this.rl.close();
-                process.exit(0);
-              }
-
-              if (result.shouldClearHistory) {
-                this.messages = [this.messages[0]];
-                this.sessionStats.messagesCount = 0;
-              }
-            }
-          }
-          
-          // 修复 inquirer 导致的问题
-          // 给 inquirer 一点时间完全清理
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-          // 1. 退出 raw mode
-          if (process.stdin.isTTY && process.stdin.setRawMode) {
-            try {
-              process.stdin.setRawMode(false);
-            } catch (e) {
-              // 忽略错误
-            }
-          }
-          
-          // 2. 强制 ref stdin 确保进程继续运行
-          if (process.stdin.ref) {
-            process.stdin.ref();
-          }
-          
-          // 3. 创建长时间定时器保持事件循环活跃
-          setTimeout(() => {}, 100000000);
-          
-          // 4. 清空任何残留的输入
-          if (process.stdin.isTTY && (process.stdin as any).read) {
-            try {
-              (process.stdin as any).read();
-            } catch (e) {
-              // 忽略错误
-            }
-          }
-          
-          // 5. 恢复 readline
-          this.rl.resume();
-          
-          // 6. 关键：恢复 stdin（inquirer 会 pause stdin）
-          process.stdin.resume();
-          
-          // 7. 再次短暂延迟确保一切就绪
-          await new Promise(resolve => setTimeout(resolve, 50));
-          
-          // 8. 显示提示符
-          this.rl.prompt();
-          
-          return;
-        }
-
-        // 處理其他斜線命令
-        const slashResult = await handleSlashCommand(trimmed, {
-          llmClient: this.llmClient,
-          workspaceContext: this.workspaceContext,
-          messages: this.messages,
-          sessionStats: this.sessionStats,
-          fileManager: {
-            addFile: this.addFile.bind(this),
-            removeFile: this.removeFile.bind(this),
-            clearFiles: this.clearFiles.bind(this),
-            getActiveFiles: this.getActiveFiles.bind(this),
-          },
-          sessionManager: {
-            saveCurrentSession: this.saveCurrentSession.bind(this),
-            loadSession: this.loadSession.bind(this),
-            listSessions: this.listSessions.bind(this),
-            deleteSession: this.deleteSession.bind(this),
-          },
-        });
-
-        if (slashResult.handled) {
-          if (slashResult.response) {
-            console.log(slashResult.response);
-          }
-
-          // 将命令结果添加到对话历史（用于后续引用）
-          if (slashResult.addToHistory) {
-            this.messages.push({
-              role: "user",
-              content: slashResult.addToHistory.userMessage,
-            });
-            this.messages.push({
-              role: "assistant",
-              content: slashResult.addToHistory.assistantMessage,
-            });
-            this.sessionStats.messagesCount += 2;
-          }
-
-          if (slashResult.shouldExit) {
-            console.log(chalk.gray("再見！"));
-            this.rl.close();
-            process.exit(0);
-          }
-
-          if (slashResult.shouldClearHistory) {
-            this.messages = [this.messages[0]];
-            this.sessionStats.messagesCount = 0;
-          }
-        } else {
-          // 未知命令，提示用户输入 / 查看命令列表
-          console.log(chalk.red(`未知命令: ${trimmed}`));
-          console.log(chalk.gray(`提示: 輸入 ${chalk.cyan('/')} 查看所有可用命令`));
-        }
-
-        this.rl.resume();
-        this.rl.prompt();
-        return;
-      }
-
-      // 刷新工作區上下文（更新 Git 狀態和最近文件）
-      this.refreshWorkspaceContext();
-
-      // 將用戶消息加入歷史
-      this.messages.push({
-        role: "user",
-        content: trimmed,
-      });
-      this.sessionStats.messagesCount++;
-
-      // 记录开始时间
-      const startTime = Date.now();
-
-      // 使用 orchestrator 處理（支持工具調用）
-      const result = await this.orchestrator.run(this.messages, true);
-
-      // 更新统计信息
-      const responseTime = Date.now() - startTime;
-      this.sessionStats.lastRequestTime = responseTime;
-      this.sessionStats.totalResponseTime += responseTime;
-      this.sessionStats.apiCallsCount++;
-      
-      // 估算 token 使用（每个字符约 0.25 token）
-      const inputTokens = Math.ceil(trimmed.length * 0.25);
-      const outputTokens = result.success ? Math.ceil(result.finalResponse.length * 0.25) : 0;
-      this.sessionStats.totalTokensUsed += inputTokens + outputTokens;
-
-      if (result.success) {
-        // 使用完整的对话历史（包含任务规划、工具调用结果等）
-        if (result.messages && result.messages.length > 0) {
-          // 提取文件操作記錄
-          this.extractFileOperationsFromResult(result.messages);
-          
-          // 添加所有中间对话（任务规划、工具结果等）
-          this.messages.push(...result.messages);
-          this.sessionStats.messagesCount += result.messages.length;
-        } else {
-          // 降级方案：只保存最终回应
-          this.messages.push({
-            role: "assistant",
-            content: result.finalResponse,
-          });
-          this.sessionStats.messagesCount++;
-        }
-        this.sessionStats.toolCallsCount += result.toolCallsExecuted;
-      } else {
-        console.log(chalk.red(`\n錯誤: ${result.error}`));
-      }
-
-      // AI 回應完成後恢復 readline 並顯示提示符
-      this.rl.resume();
-      this.rl.prompt();
+    this.rl.on("line", (input) => {
+      // 使用粘贴检测器处理所有输入
+      this.pasteDetector.push(input);
     });
 
     this.rl.on("close", () => {
-      console.log(chalk.gray("\n再見！"));
-      process.exit(0);
+      this.pasteDetector.destroy();
     });
+  }
+
+  /**
+   * 处理单行输入
+   */
+  private async handleSingleLine(input: string): Promise<void> {
+    // Windows 终端会重复显示输入，主动清除并重新显示一次
+    if (process.platform === 'win32' && input && process.stdout.isTTY) {
+      process.stdout.write(
+        this.ANSI_MOVE_UP + this.ANSI_CLEAR_LINE + this.ANSI_CARRIAGE_RETURN
+      );
+      console.log(chalk.cyan("你: ") + input);
+    }
+
+    // 多行输入模式处理
+    if (this.isMultiLineMode) {
+      // 检查是否超过最大行数限制
+      if (this.multiLineBuffer.length >= this.MAX_MULTILINE_LINES) {
+        console.log(chalk.yellow(`\n⚠️  多行输入已达到最大限制 (${this.MAX_MULTILINE_LINES} 行)`));
+        console.log(chalk.gray("自动提交当前内容...\n"));
+
+        // 强制结束并提交
+        this.multiLineBuffer.push(input);
+        const fullInput = this.multiLineBuffer.join('\n');
+        this.isMultiLineMode = false;
+        this.multiLineBuffer = [];
+        this.rl.setPrompt(chalk.cyan("\n你: "));
+
+        if (fullInput.trim()) {
+          await this.processMultiLineInput(fullInput);
+        }
+        this.rl.prompt();
+        return;
+      }
+
+      // 检查当前行是否以 \ 结尾（续行）
+      if (input.endsWith('\\')) {
+        // 继续多行模式
+        this.multiLineBuffer.push(input.slice(0, -1)); // 移除末尾的 \
+        this.rl.setPrompt(chalk.gray("... "));
+        this.rl.prompt();
+        return;
+      } else {
+        // 没有 \，这是最后一行，结束并提交
+        this.multiLineBuffer.push(input);
+        const fullInput = this.multiLineBuffer.join('\n');
+        this.isMultiLineMode = false;
+        this.multiLineBuffer = [];
+        this.rl.setPrompt(chalk.cyan("\n你: "));
+
+        if (fullInput.trim()) {
+          // 处理多行输入
+          await this.processMultiLineInput(fullInput);
+        }
+        this.rl.prompt();
+        return;
+      }
+    }
+
+    // 单行模式
+    const trimmed = input.trim();
+
+    if (!trimmed) {
+      this.rl.prompt();
+      return;
+    }
+
+    // 检查行尾是否有续行符 \
+    if (input.endsWith('\\')) {
+      // 进入多行模式
+      this.isMultiLineMode = true;
+      this.multiLineBuffer = [input.slice(0, -1)]; // 移除末尾的 \
+      this.rl.setPrompt(chalk.gray("... "));
+      this.rl.prompt();
+      return;
+    }
+
+    // 保存到历史记录
+    this.historyManager.add(trimmed);
+
+    // 暫停 readline 以避免在處理期間顯示多餘的 prompt
+    this.rl.pause();
+
+    // 舊的特殊命令（保持向後兼容）
+    if (trimmed === "exit" || trimmed === "quit") {
+      console.log(chalk.gray("再見！"));
+      this.rl.close();
+      process.exit(0);
+    }
+
+    if (trimmed === "clear") {
+      this.messages = [this.messages[0]]; // 保留 system message
+      this.sessionStats.messagesCount = 0;
+      console.log(chalk.green("✓ 對話歷史已清空"));
+      this.rl.resume();
+      this.rl.prompt();
+      return;
+    }
+
+    // 處理斜線命令
+    if (trimmed.startsWith("/")) {
+      // 如果只輸入了 /，顯示命令選擇器
+      if (trimmed === "/") {
+        const selectedCommand = await showSlashCommandPicker('/');
+
+        if (selectedCommand) {
+          // 執行選中的命令
+          this.historyManager.add(selectedCommand);
+
+          const result = await handleSlashCommand(selectedCommand, {
+            llmClient: this.llmClient,
+            workspaceContext: this.workspaceContext,
+            messages: this.messages,
+            sessionStats: this.sessionStats,
+            fileManager: {
+              addFile: this.addFile.bind(this),
+              removeFile: this.removeFile.bind(this),
+              clearFiles: this.clearFiles.bind(this),
+              getActiveFiles: this.getActiveFiles.bind(this),
+            },
+            sessionManager: {
+              saveCurrentSession: this.saveCurrentSession.bind(this),
+              loadSession: this.loadSession.bind(this),
+              listSessions: this.listSessions.bind(this),
+              deleteSession: this.deleteSession.bind(this),
+            },
+          });
+
+          if (result.handled) {
+            if (result.response) {
+              console.log(result.response);
+            }
+
+            if (result.shouldExit) {
+              console.log(chalk.gray("再見！"));
+              this.rl.close();
+              process.exit(0);
+            }
+
+            if (result.shouldClearHistory) {
+              this.messages = [this.messages[0]];
+              this.sessionStats.messagesCount = 0;
+            }
+          }
+        }
+
+        // 修复 inquirer 导致的 stdin 问题
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // 恢复 stdin 状态
+        if (process.stdin.isTTY) {
+          try {
+            process.stdin.setRawMode(false);
+          } catch (e) {
+            // 忽略错误
+          }
+        }
+
+        // 确保 stdin 被恢复
+        process.stdin.resume();
+
+        // 恢复 readline
+        this.rl.resume();
+
+        // 显示提示符
+        this.rl.prompt();
+
+        return;
+      }
+
+      // 處理其他斜線命令
+      const slashResult = await handleSlashCommand(trimmed, {
+        llmClient: this.llmClient,
+        workspaceContext: this.workspaceContext,
+        messages: this.messages,
+        sessionStats: this.sessionStats,
+        fileManager: {
+          addFile: this.addFile.bind(this),
+          removeFile: this.removeFile.bind(this),
+          clearFiles: this.clearFiles.bind(this),
+          getActiveFiles: this.getActiveFiles.bind(this),
+        },
+        sessionManager: {
+          saveCurrentSession: this.saveCurrentSession.bind(this),
+          loadSession: this.loadSession.bind(this),
+          listSessions: this.listSessions.bind(this),
+          deleteSession: this.deleteSession.bind(this),
+        },
+      });
+
+      if (slashResult.handled) {
+        if (slashResult.response) {
+          console.log(slashResult.response);
+        }
+
+        // 将命令结果添加到对话历史（用于后续引用）
+        if (slashResult.addToHistory) {
+          this.messages.push({
+            role: "user",
+            content: slashResult.addToHistory.userMessage,
+          });
+          this.messages.push({
+            role: "assistant",
+            content: slashResult.addToHistory.assistantMessage,
+          });
+          this.sessionStats.messagesCount += 2;
+        }
+
+        if (slashResult.shouldExit) {
+          console.log(chalk.gray("再見！"));
+          this.rl.close();
+          process.exit(0);
+        }
+
+        if (slashResult.shouldClearHistory) {
+          this.messages = [this.messages[0]];
+          this.sessionStats.messagesCount = 0;
+        }
+      } else {
+        // 未知命令，提示用户输入 / 查看命令列表
+        console.log(chalk.red(`未知命令: ${trimmed}`));
+        console.log(chalk.gray(`提示: 輸入 ${chalk.cyan('/')} 查看所有可用命令`));
+      }
+
+      this.rl.resume();
+      this.rl.prompt();
+      return;
+    }
+
+    // 刷新工作區上下文（更新 Git 狀態和最近文件）
+    this.refreshWorkspaceContext();
+
+    // 將用戶消息加入歷史
+    this.messages.push({
+      role: "user",
+      content: trimmed,
+    });
+    this.sessionStats.messagesCount++;
+
+    // 记录开始时间
+    const startTime = Date.now();
+
+    // 使用 orchestrator 處理（支持工具調用）
+    const result = await this.orchestrator.run(this.messages, true);
+
+    // 更新统计信息
+    const responseTime = Date.now() - startTime;
+    this.sessionStats.lastRequestTime = responseTime;
+    this.sessionStats.totalResponseTime += responseTime;
+    this.sessionStats.apiCallsCount++;
+
+    // 估算 token 使用（每个字符约 0.25 token）
+    const inputTokens = Math.ceil(trimmed.length * 0.25);
+    const outputTokens = result.success ? Math.ceil(result.finalResponse.length * 0.25) : 0;
+    this.sessionStats.totalTokensUsed += inputTokens + outputTokens;
+
+    if (result.success) {
+      // 使用完整的对话历史（包含任务规划、工具调用结果等）
+      if (result.messages && result.messages.length > 0) {
+        // 提取文件操作記錄
+        this.extractFileOperationsFromResult(result.messages);
+
+        // 添加所有中间对话（任务规划、工具结果等）
+        this.messages.push(...result.messages);
+        this.sessionStats.messagesCount += result.messages.length;
+      } else {
+        // 降级方案：只保存最终回应
+        this.messages.push({
+          role: "assistant",
+          content: result.finalResponse,
+        });
+        this.sessionStats.messagesCount++;
+      }
+      this.sessionStats.toolCallsCount += result.toolCallsExecuted;
+    } else {
+      console.log(chalk.red(`\n錯誤: ${result.error}`));
+    }
+
+    // AI 回應完成後恢復 readline 並顯示提示符
+    this.rl.resume();
+    this.rl.prompt();
   }
 
   /**
@@ -516,6 +487,7 @@ export class ChatSession {
 
     // AI 回應完成後恢復 readline 並顯示提示符
     this.rl.resume();
+    this.rl.prompt();
   }
 
   /**
@@ -523,10 +495,9 @@ export class ChatSession {
    */
   private async handlePastedInput(content: string): Promise<void> {
     const trimmed = content.trim();
-    
+
     if (!trimmed) {
-      this.rl.prompt();
-      return;
+      return; // 不調用 rl.prompt() 避免意外激活輸入框
     }
 
     // 显示粘贴内容摘要
@@ -534,7 +505,7 @@ export class ChatSession {
     console.log(chalk.cyan(`\n📋 检测到粘贴内容:`));
     console.log(chalk.gray(`  • 总行数: ${lines.length}`));
     console.log(chalk.gray(`  • 字符数: ${content.length}`));
-    
+
     // 预览前几行
     if (lines.length > 1) {
       console.log(chalk.yellow('\n预览:'));
@@ -542,7 +513,7 @@ export class ChatSession {
         const preview = line.length > 70 ? line.substring(0, 70) + '...' : line;
         console.log(chalk.gray(`  ${i + 1}. ${preview}`));
       });
-      
+
       if (lines.length > 5) {
         console.log(chalk.gray(`  ... 还有 ${lines.length - 5} 行`));
       }
@@ -551,7 +522,7 @@ export class ChatSession {
 
     // 处理粘贴内容（作为单个请求）
     await this.processMultiLineInput(trimmed);
-    this.rl.prompt();
+    // 不立即調用 rl.prompt()，讓 processMultiLineInput 自己處理
   }
 
 /**
