@@ -4,6 +4,7 @@
  */
 import fs from "fs/promises";
 import path from "path";
+import os from "os";
 import { ChatMessage } from "../llm/client";
 
 export interface ChatSessionData {
@@ -27,7 +28,7 @@ export class ChatSessionManager {
   private sessionsDir: string;
 
   constructor(baseDir?: string) {
-    const home = require("os").homedir();
+    const home = os.homedir();
     this.sessionsDir =
       baseDir || path.join(home, ".bailu-cli", "chat-sessions");
   }
@@ -69,13 +70,13 @@ export class ChatSessionManager {
   async loadSession(sessionIdOrName: string): Promise<ChatSessionData | null> {
     try {
       await this.initialize();
-      
+
       // 尝试直接作为 session ID 加载
       let filePath = path.join(
         this.sessionsDir,
         `${sessionIdOrName}.json`
       );
-      
+
       // 如果文件不存在，尝试按名称查找
       try {
         await fs.access(filePath);
@@ -97,7 +98,7 @@ export class ChatSessionManager {
 
       const content = await fs.readFile(filePath, "utf-8");
       return JSON.parse(content) as ChatSessionData;
-    } catch (error) {
+    } catch {
       return null;
     }
   }

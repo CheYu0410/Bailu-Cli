@@ -8,14 +8,14 @@ import { Command } from "commander";
 import fs from "fs";
 import path from "path";
 import chalk from "chalk";
-import { BailuAgent } from "./agent/core";
-import { LLMClient } from "./llm/client";
-import { buildAskPrompt, buildFixPrompt } from "./llm/prompts";
-import { ensureApiKeyInteractive, mergeConfigs } from "./config";
-import { AgentOrchestrator } from "./agent/orchestrator";
-import { globalToolRegistry, builtinTools, ToolExecutionContext } from "./tools";
-import { SessionManager } from "./agent/session";
-import { ChatSession } from "./agent/chat";
+import { BailuAgent } from "./agent/core.js";
+import { LLMClient } from "./llm/client.js";
+import { buildAskPrompt, buildFixPrompt } from "./llm/prompts.js";
+import { ensureApiKeyInteractive, mergeConfigs } from "./config.js";
+import { AgentOrchestrator } from "./agent/orchestrator.js";
+import { globalToolRegistry, builtinTools, ToolExecutionContext } from "./tools/index.js";
+import { SessionManager } from "./agent/session.js";
+import { ChatSession } from "./agent/chat.js";
 
 // Basic handlers using Bailu LLM; more advanced behaviours (diff、命令執行等) 將在後續步驟中實現。
 async function handleAsk(question: string | undefined) {
@@ -298,7 +298,7 @@ async function main() {
   program
     .name("bailu")
     .description("Bailu CLI - AI powered coding agent")
-    .version("0.1.0");
+    .version("0.2.4");
 
   program
     .command("ask")
@@ -387,5 +387,3 @@ main().catch((err) => {
   console.error(chalk.red("Bailu CLI 遇到錯誤："), err);
   process.exit(1);
 });
-
-

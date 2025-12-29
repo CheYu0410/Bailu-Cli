@@ -205,7 +205,7 @@ export class AgentOrchestrator {
 
         // 調試：記錄完整的 LLM 響應
         if (process.env.BAILU_DEBUG) {
-          const fs = require('fs');
+          const fs = await import('fs');
           const debugLog = `\n=== LLM 回應 (迭代 ${iterations}) ===\n${assistantResponse}\n=== 結束 ===\n`;
           fs.appendFileSync('debug-llm-response.log', debugLog, 'utf-8');
           console.log(chalk.gray(`[DEBUG] LLM 响应已记录到 debug-llm-response.log`));

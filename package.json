@@ -2,6 +2,7 @@
   "name": "bailu-cli",
   "version": "0.2.4",
   "description": "Bailu CLI - AI-powered software engineering agent for the terminal.",
+  "type": "module",
   "bin": {
     "bailu": "dist/cli.js",
     "bailu-cli": "dist/cli.js"
@@ -31,6 +32,9 @@
   "devDependencies": {
     "@types/diff": "^5.2.3",
     "@types/node": "^22.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.50.1",
+    "@typescript-eslint/parser": "^8.50.1",
+    "eslint": "^9.39.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"
   }

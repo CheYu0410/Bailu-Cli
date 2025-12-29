@@ -179,13 +179,15 @@ export class LLMClient {
         
         // Personal 計劃優先推薦模型（免費/基礎模型）
         const preferredModels = [
-          "Test-Hide",               // 支持工具調用（推薦）
+          "bailu-2.6-preview",       // 預覽版，最新功能，工具調用最佳（推薦）
+          "bailu-2.6",               // 穩定版
+          "bailu-2.6-fast-thinking", // 快速思考版
+          "Test-Hide",               // 支持工具調用
           "bailu-Minimum-free",      // 免費模型
           "bailu-Edge",              // Edge 模型
           "bailu-2.6-mini",          // Mini 版本
           "bailu-2.5-lite-code",     // 輕量代碼版
           "bailu-2.5-pro",           // Pro 版本（可能需要付費）
-          "bailu-2.6-fast-thinking", // 快速思考
           "bailu-2.5-code-cc",       // 代碼審查
         ];
 
@@ -386,17 +388,18 @@ export class LLMClient {
         console.log(`[DEBUG STREAM] 發送 ${tools.length} 個工具到 API`);
         
         // 記錄完整請求到文件
-        const fs = require('fs');
-        const debugRequest = {
-          model: this.model,
-          messages: messages.map((m: any) => ({
-            role: m.role,
-            content: typeof m.content === 'string' ? m.content.substring(0, 500) + (m.content.length > 500 ? '...(truncated)' : '') : m.content
-          })),
-          tools: tools.length,
-          stream: true,
-        };
-        fs.appendFileSync('debug-api-request.log', `\n=== API 請求 ===\n${JSON.stringify(debugRequest, null, 2)}\n`, 'utf-8');
+        import('fs').then((fs) => {
+          const debugRequest = {
+            model: this.model,
+            messages: messages.map((m: any) => ({
+              role: m.role,
+              content: typeof m.content === 'string' ? m.content.substring(0, 500) + (m.content.length > 500 ? '...(truncated)' : '') : m.content
+            })),
+            tools: tools.length,
+            stream: true,
+          };
+          fs.appendFileSync('debug-api-request.log', `\n=== API 請求 ===\n${JSON.stringify(debugRequest, null, 2)}\n`, 'utf-8');
+        });
       }
     }
 
@@ -492,6 +495,3 @@ export class LLMClient {
     return list.map((m) => m.id);
   }
 }
-
-
-

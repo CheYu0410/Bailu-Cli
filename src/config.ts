@@ -110,7 +110,7 @@ export function mergeConfigs(cliArgs: Partial<BailuCliConfig> = {}): BailuCliCon
   // 默认值
   const defaults: BailuCliConfig = {
     baseUrl: "https://bailucode.com/openapi/v1",
-    model: "bailu-Edge",
+    model: "bailu-2.6-preview",
     safetyMode: "review",
     maxIterations: 10,
     autoCompress: true,
@@ -211,5 +211,3 @@ export async function ensureApiKeyInteractive(): Promise<string> {
   saveCliConfig({ apiKey });
   return apiKey;
 }
-
-

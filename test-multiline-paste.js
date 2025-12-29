@@ -5,7 +5,7 @@
  * 模拟用户粘贴大量文本的情况
  */
 
-const { spawn } = require('child_process');
+import { spawn } from 'child_process';
 const path = require('path');
 
 // 生成测试文本
@@ -82,8 +82,8 @@ function startCLI(includeTrailingNewline = true) {
 }
 
 // 如果直接运行此脚本
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   startCLI();
 }
 
-module.exports = { generateTestText, startCLI };
+export { generateTestText, startCLI };

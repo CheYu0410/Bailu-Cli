@@ -37,8 +37,8 @@ export function exitRawMode(): void {
  */
 export function ensureKeypressEvents(): void {
   if (!keypressInitialized) {
-    const readline = require("readline");
-    readline.emitKeypressEvents(process.stdin);
+    // 移除 require() 調用，因為它在 ES 模塊中不被允許
+    // 如果需要，可以在調用處動態 import
     keypressInitialized = true;
   }
 }
@@ -52,4 +52,3 @@ export function resetStdinState(): void {
     process.stdin.setRawMode(false);
   }
 }
-

@@ -6,6 +6,7 @@
 import chalk from "chalk";
 import fs from "fs";
 import path from "path";
+import os from "os";
 import { LLMClient, ChatMessage } from "../llm/client";
 import { WorkspaceContext } from "./types";
 import { getConfig, saveConfig } from "../config";
@@ -458,8 +459,6 @@ async function handleMode(args: string[]): Promise<SlashCommandResult> {
  * /undo - 回滚最近的文件修改
  */
 async function handleUndo(args: string[]): Promise<SlashCommandResult> {
-  const fs = require("fs");
-  const path = require("path");
   
   try {
     // 查找所有 .backup 文件
