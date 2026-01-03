@@ -3,9 +3,9 @@
  */
 
 import path from "path";
-import { Tool, ToolResult } from "../types";
-import { runCommandSafe } from "../../runtime/runner";
-import { getDefaultPolicy } from "../../runtime/policy";
+import { Tool, ToolResult } from "../types.js";
+import { runCommandSafe } from "../../runtime/runner.js";
+import { getDefaultPolicy } from "../../runtime/policy.js";
 
 export const runCommandTool: Tool = {
   definition: {

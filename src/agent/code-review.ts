@@ -5,7 +5,7 @@
 import chalk from "chalk";
 import * as fs from "fs";
 import * as path from "path";
-import { LLMClient } from "../llm/client";
+import { LLMClient } from "../llm/client.js";
 
 /**
  * 审查结果类型

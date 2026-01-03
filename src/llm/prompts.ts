@@ -1,5 +1,5 @@
-import { WorkspaceContext } from "../agent/types";
-import { ChatMessage } from "./client";
+import { WorkspaceContext } from "../agent/types.js";
+import { ChatMessage } from "./client.js";
 
 function buildWorkspaceSummary(context: WorkspaceContext): string {
   const parts: string[] = [];

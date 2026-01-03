@@ -171,7 +171,7 @@ export class BracketedPasteHandler {
 修改 `src/agent/chat.ts`:
 
 ```typescript
-import { BracketedPasteHandler } from "../utils/bracketed-paste";
+import { BracketedPasteHandler } from "../utils/bracketed-paste.js";
 
 export class ChatSession {
   // ... 其他属性

@@ -3,14 +3,14 @@
  */
 
 import chalk from "chalk";
-import { LLMClient, ChatMessage } from "../llm/client";
-import { ToolRegistry } from "../tools/registry";
-import { ToolExecutor } from "../tools/executor";
-import { parseToolCalls, formatToolResult } from "../tools/parser";
-import { ToolExecutionContext, ToolDefinition, ToolCall } from "../tools/types";
-import { ContextMemory } from "./memory";
-import { DependencyAnalyzer } from "../analysis/dependencies";
-import { createSpinner, Spinner } from "../utils/spinner";
+import { LLMClient, ChatMessage } from "../llm/client.js";
+import { ToolRegistry } from "../tools/registry.js";
+import { ToolExecutor } from "../tools/executor.js";
+import { parseToolCalls, formatToolResult } from "../tools/parser.js";
+import { ToolExecutionContext, ToolDefinition, ToolCall } from "../tools/types.js";
+import { ContextMemory } from "./memory.js";
+import { DependencyAnalyzer } from "../analysis/dependencies.js";
+import { createSpinner, Spinner } from "../utils/spinner.js";
 
 /**
  * 工具調用人性化描述

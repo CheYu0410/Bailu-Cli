@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 import YAML from "yaml";
-import { BailuConfig, WorkspaceContext, GitStatus } from "./types";
-import { getGitSummary } from "../git/integration";
+import { BailuConfig, WorkspaceContext, GitStatus } from "./types.js";
+import { getGitSummary } from "../git/integration.js";
 
 function readAgentDoc(rootPath: string): string | undefined {
   const candidates = ["AGENT.md", "AGENTS.md"];

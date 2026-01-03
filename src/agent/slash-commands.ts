@@ -7,12 +7,12 @@ import chalk from "chalk";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { LLMClient, ChatMessage } from "../llm/client";
-import { WorkspaceContext } from "./types";
-import { getConfig, saveConfig } from "../config";
-import { autoCommitWithAI } from "../git/auto-commit";
-import { hasUncommittedChanges, getChangedFiles, getGitSummary } from "../git/integration";
-import { reviewCodeFile, formatReviewResult } from "./code-review";
+import { LLMClient, ChatMessage } from "../llm/client.js";
+import { WorkspaceContext } from "./types.js";
+import { getConfig, saveConfig } from "../config.js";
+import { autoCommitWithAI } from "../git/auto-commit.js";
+import { hasUncommittedChanges, getChangedFiles, getGitSummary } from "../git/integration.js";
+import { reviewCodeFile, formatReviewResult } from "./code-review.js";
 
 export interface SlashCommandContext {
   llmClient: LLMClient;

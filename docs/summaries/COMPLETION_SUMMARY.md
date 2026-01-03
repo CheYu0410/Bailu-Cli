@@ -25,7 +25,7 @@
 
 ```typescript
 // 使用示例
-import { findGitRoot, getProjectRoot } from "./config";
+import { findGitRoot, getProjectRoot } from "./config.js";
 
 const gitRoot = findGitRoot(); // /path/to/git/root 或 null
 const projectRoot = getProjectRoot(); // 优先 Git 根，否则当前目录

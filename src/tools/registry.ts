@@ -2,7 +2,7 @@
  * 工具註冊中心：管理所有可用工具
  */
 
-import { Tool, ToolDefinition } from "./types";
+import { Tool, ToolDefinition } from "./types.js";
 
 export class ToolRegistry {
   private tools: Map<string, Tool> = new Map();

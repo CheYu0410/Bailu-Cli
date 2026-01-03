@@ -5,18 +5,18 @@
 import readline from "readline";
 import chalk from "chalk";
 import { execSync } from "child_process";
-import { LLMClient, ChatMessage } from "../llm/client";
-import { WorkspaceContext } from "./types";
-import { ToolRegistry } from "../tools/registry";
-import { AgentOrchestrator } from "./orchestrator";
-import { ToolExecutionContext } from "../tools/types";
-import { handleSlashCommand } from "./slash-commands";
-import { showSlashCommandPicker } from "./autocomplete";
-import { HistoryManager } from "../utils/history";
-import { getHistoryPath } from "../config";
-import { ChatSessionManager, ChatSessionData } from "./chat-session-manager";
-import { buildWorkspaceContext } from "./context";
-import { PasteDetector } from "../utils/paste-detector";
+import { LLMClient, ChatMessage } from "../llm/client.js";
+import { WorkspaceContext } from "./types.js";
+import { ToolRegistry } from "../tools/registry.js";
+import { AgentOrchestrator } from "./orchestrator.js";
+import { ToolExecutionContext } from "../tools/types.js";
+import { handleSlashCommand } from "./slash-commands.js";
+import { showSlashCommandPicker } from "./autocomplete.js";
+import { HistoryManager } from "../utils/history.js";
+import { getHistoryPath } from "../config.js";
+import { ChatSessionManager, ChatSessionData } from "./chat-session-manager.js";
+import { buildWorkspaceContext } from "./context.js";
+import { PasteDetector } from "../utils/paste-detector.js";
 
 export interface ChatSessionOptions {
   llmClient: LLMClient;

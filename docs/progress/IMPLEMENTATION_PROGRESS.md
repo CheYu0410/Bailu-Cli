@@ -20,7 +20,7 @@
 
 **使用场景：**
 ```typescript
-import { findGitRoot, getProjectRoot } from "./config";
+import { findGitRoot, getProjectRoot } from "./config.js";
 
 const gitRoot = findGitRoot(); // 返回 Git 根目录或 null
 const projectRoot = getProjectRoot(); // 优先返回 Git 根，否则当前目录

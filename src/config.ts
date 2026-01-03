@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import readline from "readline";
-import { findGitRoot, getProjectRoot } from "./utils/git";
+import { findGitRoot, getProjectRoot } from "./utils/git.js";
 
 export interface BailuCliConfig {
   apiKey?: string;
@@ -42,7 +42,7 @@ export function getHistoryPath(): string {
 /**
  * 导出 Git 工具函数供其他模块使用
  */
-export { findGitRoot, getProjectRoot, isInGitRepo } from "./utils/git";
+export { findGitRoot, getProjectRoot, isInGitRepo } from "./utils/git.js";
 
 /**
  * 获取项目级配置文件路径

@@ -5,7 +5,7 @@
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
-import { ChatMessage } from "../llm/client";
+import { ChatMessage } from "../llm/client.js";
 
 export interface ChatSessionData {
   sessionId: string;

@@ -1,5 +1,5 @@
 import { exec } from "child_process";
-import { SafetyPolicy, getDefaultPolicy, isCommandAllowed } from "./policy";
+import { SafetyPolicy, getDefaultPolicy, isCommandAllowed } from "./policy.js";
 
 export interface CommandResult {
   command: string;

@@ -4,9 +4,9 @@
 
 import chalk from "chalk";
 import path from "path";
-import { ToolRegistry } from "./registry";
-import { ToolCall, ToolResult, ToolExecutionContext, ToolDefinition, ToolParameter } from "./types";
-import { ErrorRecoveryManager, RetryAttempt } from "./recovery";
+import { ToolRegistry } from "./registry.js";
+import { ToolCall, ToolResult, ToolExecutionContext, ToolDefinition, ToolParameter } from "./types.js";
+import { ErrorRecoveryManager, RetryAttempt } from "./recovery.js";
 import readline from "readline";
 
 export class ToolExecutor {
@@ -430,7 +430,7 @@ export class ToolExecutor {
   private async showDiffPreview(filePath: string, newContent: string, detailed = false): Promise<void> {
     try {
       const fs = await import("fs/promises");
-      const { createColoredDiff, getDiffStats, formatDiffStats } = await import("../fs/diff");
+      const { createColoredDiff, getDiffStats, formatDiffStats } = await import("../fs/diff.js");
 
       let oldContent = "";
       try {

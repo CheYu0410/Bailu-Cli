@@ -159,7 +159,7 @@ CLI 参数 > 项目配置 > 用户配置 > 环境变量 > 默认值
 
 **使用示例**：
 ```typescript
-import { displayFriendlyError, wrapApiError } from "./utils/error-handler";
+import { displayFriendlyError, wrapApiError } from "./utils/error-handler.js";
 
 try {
   // 操作

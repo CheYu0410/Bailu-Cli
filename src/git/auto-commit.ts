@@ -3,13 +3,13 @@
  * 使用 AI 生成描述性的提交信息
  */
 import chalk from "chalk";
-import { LLMClient } from "../llm/client";
+import { LLMClient } from "../llm/client.js";
 import { 
   hasUncommittedChanges, 
   getChangedFiles, 
   getFileDiff, 
   autoCommit 
-} from "./integration";
+} from "./integration.js";
 
 /**
  * 生成 AI 提交信息的选项

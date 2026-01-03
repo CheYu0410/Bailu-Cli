@@ -1,5 +1,5 @@
-import { buildWorkspaceContext } from "./context";
-import { Run, Step, Task, TaskStatus, TaskType, WorkspaceContext } from "./types";
+import { buildWorkspaceContext } from "./context.js";
+import { Run, Step, Task, TaskStatus, TaskType, WorkspaceContext } from "./types.js";
 import path from "path";
 
 let idCounter = 0;

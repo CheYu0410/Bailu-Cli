@@ -4,7 +4,7 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { Task, Run } from "./types";
+import { Task, Run } from "./types.js";
 
 export interface SessionMetadata {
   sessionId: string;

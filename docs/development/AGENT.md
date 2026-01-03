@@ -170,7 +170,7 @@ interface Tool {
 
 ```typescript
 // my_tool.ts
-import { Tool, ToolResult } from "../types";
+import { Tool, ToolResult } from "../types.js";
 
 export const myTool: Tool = {
   definition: {

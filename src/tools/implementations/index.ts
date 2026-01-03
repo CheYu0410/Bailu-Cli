@@ -2,20 +2,20 @@
  * 導出所有工具實現
  */
 
-export { readFileTool } from "./read_file";
-export { writeFileTool } from "./write_file";
-export { listDirectoryTool } from "./list_directory";
-export { runCommandTool } from "./run_command";
-export { execTool } from "./exec";
-export { applyDiffTool } from "./apply_diff";
+export { readFileTool } from "./read_file.js";
+export { writeFileTool } from "./write_file.js";
+export { listDirectoryTool } from "./list_directory.js";
+export { runCommandTool } from "./run_command.js";
+export { execTool } from "./exec.js";
+export { applyDiffTool } from "./apply_diff.js";
 
-import { Tool } from "../types";
-import { readFileTool } from "./read_file";
-import { writeFileTool } from "./write_file";
-import { listDirectoryTool } from "./list_directory";
-import { runCommandTool } from "./run_command";
-import { execTool } from "./exec";
-import { applyDiffTool } from "./apply_diff";
+import { Tool } from "../types.js";
+import { readFileTool } from "./read_file.js";
+import { writeFileTool } from "./write_file.js";
+import { listDirectoryTool } from "./list_directory.js";
+import { runCommandTool } from "./run_command.js";
+import { execTool } from "./exec.js";
+import { applyDiffTool } from "./apply_diff.js";
 
 /**
  * 所有內建工具的列表

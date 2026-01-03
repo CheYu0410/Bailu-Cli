@@ -2,8 +2,8 @@
  * exec 工具 (run_command 的別名)
  */
 
-import { Tool } from "../types";
-import { runCommandTool } from "./run_command";
+import { Tool } from "../types.js";
+import { runCommandTool } from "./run_command.js";
 
 /**
  * exec 工具是 run_command 的別名

@@ -6,12 +6,12 @@
 
 **查找：**
 ```typescript
-import { BracketedPasteHandler } from "../utils/bracketed-paste";
+import { BracketedPasteHandler } from "../utils/bracketed-paste.js";
 ```
 
 **替换为：**
 ```typescript
-import { PasteDetector } from "../utils/paste-detector";
+import { PasteDetector } from "../utils/paste-detector.js";
 ```
 
 ---

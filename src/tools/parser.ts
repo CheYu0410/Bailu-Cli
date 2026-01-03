@@ -2,7 +2,7 @@
  * 解析 LLM 回應中的工具調用（基於白鹿的 XML 格式）
  */
 
-import { ToolCall } from "./types";
+import { ToolCall } from "./types.js";
 
 /**
  * 從 LLM 的回應文本中提取工具調用

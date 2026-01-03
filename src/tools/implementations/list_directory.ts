@@ -4,7 +4,7 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { Tool, ToolResult } from "../types";
+import { Tool, ToolResult } from "../types.js";
 
 export const listDirectoryTool: Tool = {
   definition: {
