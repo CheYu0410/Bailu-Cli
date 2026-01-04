@@ -26,9 +26,10 @@ async function handleAsk(question: string | undefined) {
   }
 
   const apiKey = await ensureApiKeyInteractive();
+  const config = mergeConfigs();
   const agent = new BailuAgent();
   const ctx = agent.getWorkspaceContext();
-  const llm = new LLMClient({ apiKey });
+  const llm = new LLMClient({ apiKey, baseUrl: config.baseUrl, model: config.model });
   const messages = buildAskPrompt(ctx, question);
 
   console.log(chalk.cyan("\n[Bailu 回答]\n"));
@@ -226,7 +227,8 @@ async function executeTask(
   sessionId: string,
   sessionManager: SessionManager
 ) {
-  const safetyMode = (process.env.BAILU_MODE as any) || "review";
+  const config = mergeConfigs();
+  const safetyMode = (process.env.BAILU_MODE as any) || config.safetyMode || "review";
   const executionContext: ToolExecutionContext = {
     workspaceRoot: process.cwd(),
     safetyMode,
@@ -235,12 +237,12 @@ async function executeTask(
 
   const agent = new BailuAgent();
   const ctx = agent.getWorkspaceContext();
-  const llm = new LLMClient({ apiKey });
+  const llm = new LLMClient({ apiKey, baseUrl: config.baseUrl, model: config.model });
   const orchestrator = new AgentOrchestrator({
     llmClient: llm,
     toolRegistry: globalToolRegistry,
     executionContext,
-    maxIterations: 15,
+    maxIterations: config.maxIterations || 15,
     verbose: true,
   });
 

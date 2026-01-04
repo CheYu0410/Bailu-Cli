@@ -216,9 +216,14 @@ async function handleModel(args: string[], context: SlashCommandContext): Promis
   const newModel = args[0];
   context.llmClient["model"] = newModel;
 
+  // 持久化模型設定到配置文件
+  const config = await getConfig();
+  config.model = newModel;
+  await saveConfig(config);
+
   return {
     handled: true,
-    response: chalk.green(`✓ 已切換到模型: ${chalk.bold(newModel)}`),
+    response: chalk.green(`✓ 已切換到模型: ${chalk.bold(newModel)}\n✓ 模型設定已保存到配置文件`),
   };
 }
 
