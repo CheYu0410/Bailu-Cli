@@ -95,7 +95,7 @@ export class ChatSession {
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: chalk.cyan("\n你: "),
+      prompt: chalk.bold.cyan("\nYou: "),
       terminal: true, // 确保作为终端模式运行
       crlfDelay: Infinity, // 处理 Windows 的 CRLF，避免重复行
     });
@@ -183,7 +183,7 @@ export class ChatSession {
       if (input.endsWith('\\')) {
         // 继续多行模式
         this.multiLineBuffer.push(input.slice(0, -1)); // 移除末尾的 \
-        this.rl.setPrompt(chalk.gray("... "));
+        this.rl.setPrompt(chalk.gray("  ... "));
         this.rl.prompt();
         return;
       } else {
@@ -192,7 +192,7 @@ export class ChatSession {
         const fullInput = this.multiLineBuffer.join('\n');
         this.isMultiLineMode = false;
         this.multiLineBuffer = [];
-        this.rl.setPrompt(chalk.cyan("\n你: "));
+        this.rl.setPrompt(chalk.bold.cyan("\nYou: "));
 
         if (fullInput.trim()) {
           // 处理多行输入
@@ -216,7 +216,7 @@ export class ChatSession {
       // 进入多行模式
       this.isMultiLineMode = true;
       this.multiLineBuffer = [input.slice(0, -1)]; // 移除末尾的 \
-      this.rl.setPrompt(chalk.gray("... "));
+      this.rl.setPrompt(chalk.gray("  ... "));
       this.rl.prompt();
       return;
     }
@@ -424,6 +424,7 @@ export class ChatSession {
 
     // AI 回應完成後恢復 readline 並顯示提示符
     this.rl.resume();
+    console.log(chalk.gray("─".repeat(60)));
     this.rl.prompt();
   }
 
@@ -479,6 +480,7 @@ export class ChatSession {
 
     // AI 回應完成後恢復 readline 並顯示提示符
     this.rl.resume();
+    console.log(chalk.gray("─".repeat(60)));
     this.rl.prompt();
   }
 
@@ -568,6 +570,25 @@ export class ChatSession {
    * 顯示歡迎信息
    */
   private printWelcome(): void {
+    // ASCII Art Banner
+    console.log(chalk.cyan(`
+                                        ,--,                                          ,--,             
+                                     ,---.'|                                       ,---.'|             
+    ,---,.     ,---,           ,---, |   | :                             ,----..   |   | :       ,---, 
+  ,'  .'  \\   '  .' \\       ,\`--.' | :   : |             ,--,           /   /   \\  :   : |    ,\`--.' | 
+,---.' .' |  /  ;    '.     |   :  : |   ' :           ,'_ /|          |   :     : |   ' :    |   :  : 
+|   |  |: | :  :       \\    :   |  ' ;   ; '      .--. |  | :          .   |  ;. / ;   ; '    :   |  ' 
+:   :  :  / :  |   /\\   \\   |   :  | '   | |__  ,'_ /| :  . |          .   ; /--\`  '   | |__  |   :  | 
+:   |    ;  |  :  ' ;.   :  '   '  ; |   | :.'| |  ' | |  . .          ;   | ;     |   | :.'| '   '  ; 
+|   :     \\ |  |  ;/  \\   \\ |   |  | '   :    ; |  | ' |  | |          |   : |     '   :    ; |   |  | 
+|   |   . | '  :  | \\  \\ ,' '   :  ; |   |  ./  :  | | :  ' ;          .   | '___  |   |  ./  '   :  ; 
+'   :  '; | |  |  '  '--'   |   |  ' ;   : ;    |  ; ' |  | '          '   ; : .'| ;   : ;    |   |  ' 
+|   |  | ;  |  :  :         '   :  | |   ,/     :  | : ;  ; |          '   | '/  : |   ,/     '   :  | 
+|   :   /   |  | ,'         ;   |.'  '---'      '  :  \`--'   \\         |   :    /  '---'      ;   |.'  
+|   | ,'    \`--''           '---'               :  ,      .-./          \\   \\ .'              '---'    
+\`----'                                           \`--\`----'               \`---\`                         
+    `));
+
     console.log(chalk.green("\n╔════════════════════════════════════════════════════╗"));
     console.log(chalk.green("║") + chalk.bold.cyan("      Bailu Chat - AI 交互模式                      ") + chalk.green("║"));
     console.log(chalk.green("╚════════════════════════════════════════════════════╝"));

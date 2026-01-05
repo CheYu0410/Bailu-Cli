@@ -11,6 +11,7 @@ import { ToolExecutionContext, ToolDefinition, ToolCall } from "../tools/types.j
 import { ContextMemory } from "./memory.js";
 import { DependencyAnalyzer } from "../analysis/dependencies.js";
 import { createSpinner, Spinner } from "../utils/spinner.js";
+import { renderMarkdown } from "../utils/markdown-renderer.js";
 
 /**
  * 工具調用人性化描述
@@ -370,72 +371,44 @@ export class AgentOrchestrator {
     let fullResponse = "";
     let firstChunk = true;
     let insideAction = false;
-    let buffer = "";
+    let textBeforeAction = ""; // 收集 action 標籤前的所有文本
 
     try {
+      // 先收集完整的流式回應
       for await (const chunk of this.llmClient.chatStream(messages, tools)) {
         fullResponse += chunk;
-        buffer += chunk;
-
-        // 檢測是否進入或離開 <action> 標籤
-        if (buffer.includes('<action>')) {
-          // 輸出 <action> 之前的內容
-          const parts = buffer.split('<action>');
-          const beforeAction = parts[0];
-          
-          if (firstChunk && beforeAction.trim()) {
-            if (spinner) {
-              spinner.stop();
-            }
-            process.stdout.write(chalk.cyan("Bailu: "));
-            firstChunk = false;
-          }
-          
-          if (!firstChunk && beforeAction) {
-            process.stdout.write(beforeAction);
-          }
-          
-          insideAction = true;
-          buffer = parts.slice(1).join('<action>'); // 保留 <action> 之後的內容
-        }
-
-        if (buffer.includes('</action>')) {
-          // 跳過 </action> 標籤內的所有內容
-          const parts = buffer.split('</action>');
-          buffer = parts.slice(1).join('</action>'); // 保留 </action> 之後的內容
-          insideAction = false;
-        }
-
-        // 如果不在 action 標籤內，輸出緩衝區內容
-        if (!insideAction && buffer && !buffer.includes('<action>')) {
-          if (firstChunk && buffer.trim()) {
-            if (spinner) {
-              spinner.stop();
-            }
-            process.stdout.write(chalk.cyan("Bailu: "));
-            firstChunk = false;
-          }
-          
-          if (!firstChunk) {
-            process.stdout.write(buffer);
-          }
-          buffer = "";
-        }
       }
 
-      // 輸出剩餘的緩衝區內容（如果有）
-      if (!insideAction && buffer && !firstChunk) {
-        process.stdout.write(buffer);
-      }
-      
-      // 如果整個響應都在 <action> 標籤內（或為空），spinner 還在運行，需要停止它
-      if (firstChunk && spinner) {
+      // 停止 spinner
+      if (spinner) {
         spinner.stop();
-        // 如果沒有任何文本輸出，顯示一個提示
-        if (this.verbose) {
-          console.log(chalk.gray("[DEBUG] AI 響應只包含工具調用，沒有文本內容"));
-        }
       }
+
+      // 解析並分離文本內容和 action 標籤
+      const actionStartIdx = fullResponse.indexOf('<action>');
+      
+      if (actionStartIdx === -1) {
+        // 沒有 action 標籤，整個回應都是文本
+        textBeforeAction = fullResponse;
+      } else {
+        // 提取 action 標籤之前的文本
+        textBeforeAction = fullResponse.substring(0, actionStartIdx);
+      }
+
+      // 如果有文本內容，進行 Markdown 渲染並輸出
+      if (textBeforeAction.trim()) {
+        console.log(chalk.gray("─".repeat(60)));
+        process.stdout.write(chalk.bold.green("Bailu: "));
+        
+        // 使用 Markdown 渲染器處理文本
+        const rendered = renderMarkdown(textBeforeAction.trim());
+        process.stdout.write(rendered);
+        process.stdout.write("\n");
+      } else if (this.verbose) {
+        // 沒有文本輸出，顯示調試信息
+        console.log(chalk.gray("[DEBUG] AI 響應只包含工具調用，沒有文本內容"));
+      }
+
     } catch (error) {
       // 流式響應可能包含格式錯誤的數據塊，但已接收的內容仍然有效
       if (spinner) {
@@ -446,10 +419,6 @@ export class AgentOrchestrator {
       }
     }
 
-    // 輸出完成後換行（準備下一輪輸入）
-    if (!firstChunk) {
-      process.stdout.write("\n");
-    }
     return fullResponse;
   }
 
