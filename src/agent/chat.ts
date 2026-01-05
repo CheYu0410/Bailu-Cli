@@ -17,6 +17,14 @@ import { getHistoryPath } from "../config.js";
 import { ChatSessionManager, ChatSessionData } from "./chat-session-manager.js";
 import { buildWorkspaceContext } from "./context.js";
 import { PasteDetector } from "../utils/paste-detector.js";
+import { 
+  createUserPanel, 
+  createAssistantPanel, 
+  createSystemPanel,
+  createErrorPanel,
+  createSeparator,
+  createStatsPanel
+} from "../utils/panel-formatter.js";
 
 export interface ChatSessionOptions {
   llmClient: LLMClient;
@@ -386,8 +394,8 @@ export class ChatSession {
     // 记录开始时间
     const startTime = Date.now();
 
-    // 使用 orchestrator 處理（支持工具調用）
-    const result = await this.orchestrator.run(this.messages, true);
+    // 使用 orchestrator 處理（支持工具調用，使用靜默模式避免重複輸出）
+    const result = await this.orchestrator.run(this.messages, true, true);
 
     // 更新统计信息
     const responseTime = Date.now() - startTime;
@@ -418,13 +426,27 @@ export class ChatSession {
         this.sessionStats.messagesCount++;
       }
       this.sessionStats.toolCallsCount += result.toolCallsExecuted;
+
+      // 顯示 AI 回應面板
+      const modelName = this.llmClient["model"] || "AI";
+      console.log("\n" + createAssistantPanel(result.finalResponse, modelName));
+
+      // 顯示統計資訊
+      if (this.sessionStats.toolCallsCount > 0) {
+        console.log(createStatsPanel({
+          messagesCount: this.sessionStats.messagesCount,
+          toolCallsCount: this.sessionStats.toolCallsCount,
+          totalTokensUsed: this.sessionStats.totalTokensUsed,
+          responseTime: this.sessionStats.lastRequestTime
+        }));
+      }
     } else {
-      console.log(chalk.red(`\n錯誤: ${result.error}`));
+      // 顯示錯誤面板
+      console.log("\n" + createErrorPanel(result.error || "未知錯誤", "執行失敗"));
     }
 
     // AI 回應完成後恢復 readline 並顯示提示符
     this.rl.resume();
-    console.log(chalk.gray("─".repeat(60)));
     this.rl.prompt();
   }
 
@@ -452,8 +474,8 @@ export class ChatSession {
     // 记录开始时间
     const startTime = Date.now();
 
-    // 使用 orchestrator 處理（支持工具調用）
-    const result = await this.orchestrator.run(this.messages, true);
+    // 使用 orchestrator 處理（支持工具調用，使用靜默模式避免重複輸出）
+    const result = await this.orchestrator.run(this.messages, true, true);
 
     // 更新统计信息
     const responseTime = Date.now() - startTime;
@@ -474,13 +496,27 @@ export class ChatSession {
       });
       this.sessionStats.messagesCount++;
       this.sessionStats.toolCallsCount += result.toolCallsExecuted;
+
+      // 顯示 AI 回應面板
+      const modelName = this.llmClient["model"] || "AI";
+      console.log("\n" + createAssistantPanel(result.finalResponse, modelName));
+
+      // 顯示統計資訊
+      if (this.sessionStats.toolCallsCount > 0) {
+        console.log(createStatsPanel({
+          messagesCount: this.sessionStats.messagesCount,
+          toolCallsCount: this.sessionStats.toolCallsCount,
+          totalTokensUsed: this.sessionStats.totalTokensUsed,
+          responseTime: this.sessionStats.lastRequestTime
+        }));
+      }
     } else {
-      console.log(chalk.red(`\n錯誤: ${result.error}`));
+      // 顯示錯誤面板
+      console.log("\n" + createErrorPanel(result.error || "未知錯誤", "執行失敗"));
     }
 
     // AI 回應完成後恢復 readline 並顯示提示符
     this.rl.resume();
-    console.log(chalk.gray("─".repeat(60)));
     this.rl.prompt();
   }
 

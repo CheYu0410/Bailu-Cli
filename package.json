@@ -23,12 +23,14 @@
   "license": "MIT",
   "dependencies": {
     "@types/inquirer": "^9.0.9",
+    "boxen": "^8.0.1",
     "chalk": "^5.3.0",
     "cli-highlight": "^2.1.11",
     "commander": "^12.1.0",
     "diff": "^5.2.0",
     "dotenv": "^17.2.3",
     "inquirer": "^9.3.8",
+    "log-symbols": "^7.0.1",
     "marked": "^15.0.0",
     "marked-terminal": "^7.3.0",
     "yaml": "^2.6.0"

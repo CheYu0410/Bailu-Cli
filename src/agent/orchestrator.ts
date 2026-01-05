@@ -137,10 +137,12 @@ export class AgentOrchestrator {
    * 執行完整的 Agent 循環
    * @param initialMessages 初始對話消息（包含 system 和 user）
    * @param stream 是否使用流式輸出
+   * @param silent 是否靜默模式（不直接輸出，由調用者處理）
    */
   async run(
     initialMessages: ChatMessage[],
-    stream = false
+    stream = false,
+    silent = false
   ): Promise<OrchestratorResult> {
     const messages: ChatMessage[] = [...initialMessages];
     let iterations = 0;
@@ -192,7 +194,7 @@ export class AgentOrchestrator {
         if (stream) {
           // 使用流式輸出（更穩定，避免 JSON 解析問題）
           // 所有輪次都傳入 spinner，在收到第一個 chunk 時停止
-          assistantResponse = await this.streamResponse(messages, openaiTools, thinkingSpinner);
+          assistantResponse = await this.streamResponse(messages, openaiTools, thinkingSpinner, silent);
           thinkingSpinner = null; // 已在 streamResponse 中停止
         } else {
           // 非流式模式（較少使用）
@@ -367,7 +369,7 @@ export class AgentOrchestrator {
   /**
    * 流式輸出 LLM 回應（顯示給用戶）
    */
-  private async streamResponse(messages: ChatMessage[], tools?: any[], spinner?: Spinner | null): Promise<string> {
+  private async streamResponse(messages: ChatMessage[], tools?: any[], spinner?: Spinner | null, silent = false): Promise<string> {
     let fullResponse = "";
     let firstChunk = true;
     let insideAction = false;
@@ -395,8 +397,8 @@ export class AgentOrchestrator {
         textBeforeAction = fullResponse.substring(0, actionStartIdx);
       }
 
-      // 如果有文本內容，進行 Markdown 渲染並輸出
-      if (textBeforeAction.trim()) {
+      // 如果不是靜默模式且有文本內容，進行 Markdown 渲染並輸出
+      if (!silent && textBeforeAction.trim()) {
         console.log(chalk.gray("─".repeat(60)));
         process.stdout.write(chalk.bold.green("Bailu: "));
         
@@ -404,7 +406,7 @@ export class AgentOrchestrator {
         const rendered = renderMarkdown(textBeforeAction.trim());
         process.stdout.write(rendered);
         process.stdout.write("\n");
-      } else if (this.verbose) {
+      } else if (!silent && this.verbose) {
         // 沒有文本輸出，顯示調試信息
         console.log(chalk.gray("[DEBUG] AI 響應只包含工具調用，沒有文本內容"));
       }
