@@ -300,7 +300,7 @@ async function main() {
   program
     .name("bailu")
     .description("Bailu CLI - AI powered coding agent")
-    .version("0.2.4");
+    .version("0.2.8");
 
   program
     .command("ask")
